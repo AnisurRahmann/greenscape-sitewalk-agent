@@ -40,36 +40,77 @@ describe('priceProposal — volume tiers', () => {
   it('charges full unit price at exactly 800 sqft', () => {
     const proposal = priceProposal([paverItem({ quantity: 800 })]);
     expect(proposal.lineItems[0]?.unitPrice).toBe(26);
+    expect(proposal.lineItems[0]?.effectiveUnitPrice).toBe(26);
+    expect(proposal.lineItems[0]?.discountBps).toBe(0);
     expect(proposal.lineItems[0]?.lineTotal).toBe(20_800);
     expect(proposal.subtotal).toBe(20_800);
   });
 
   it('applies the 4% tier strictly over 800 sqft', () => {
     const proposal = priceProposal([paverItem({ quantity: 801 })]);
-    expect(proposal.lineItems[0]?.unitPrice).toBe(24.96);
+    // unitPrice stays the catalog list price; the tier is recorded separately.
+    expect(proposal.lineItems[0]?.unitPrice).toBe(26);
+    expect(proposal.lineItems[0]?.effectiveUnitPrice).toBe(24.96);
+    expect(proposal.lineItems[0]?.discountBps).toBe(400);
     expect(proposal.lineItems[0]?.lineTotal).toBe(19_992.96);
   });
 
   it('keeps the 4% tier at exactly 1500 sqft', () => {
     const proposal = priceProposal([paverItem({ quantity: 1500 })]);
-    expect(proposal.lineItems[0]?.unitPrice).toBe(24.96);
+    expect(proposal.lineItems[0]?.unitPrice).toBe(26);
+    expect(proposal.lineItems[0]?.effectiveUnitPrice).toBe(24.96);
+    expect(proposal.lineItems[0]?.discountBps).toBe(400);
     expect(proposal.lineItems[0]?.lineTotal).toBe(37_440);
   });
 
   it('applies the 7% tier strictly over 1500 sqft', () => {
     const proposal = priceProposal([paverItem({ quantity: 1501 })]);
-    expect(proposal.lineItems[0]?.unitPrice).toBe(24.18);
+    expect(proposal.lineItems[0]?.unitPrice).toBe(26);
+    expect(proposal.lineItems[0]?.effectiveUnitPrice).toBe(24.18);
+    expect(proposal.lineItems[0]?.discountBps).toBe(700);
     expect(proposal.lineItems[0]?.lineTotal).toBe(36_294.18);
   });
 
   it('never discounts non-sqft or non-tier categories', () => {
     const ea = priceProposal([paverItem({ unit: 'ea', quantity: 2000 })]);
     expect(ea.lineItems[0]?.unitPrice).toBe(26);
+    expect(ea.lineItems[0]?.discountBps).toBe(0);
 
     const concrete = priceProposal([
       baseItem({ category: 'Concrete & Stamped', unit: 'sqft', quantity: 2000, unitPrice: 11.5 }),
     ]);
     expect(concrete.lineItems[0]?.unitPrice).toBe(11.5);
+    expect(concrete.lineItems[0]?.discountBps).toBe(0);
+  });
+});
+
+describe('priceProposal — idempotency (rule 1: the engine computes each number once)', () => {
+  it('re-pricing its own output reproduces the same proposal — the double-discount repro', () => {
+    // Demo-seed repro: TF-PET-70 at 900 sqft used to persist the discounted
+    // 9.36 and re-price to 8091. Now the list price is preserved...
+    const once = priceProposal([
+      paverItem({ sku: 'TF-PET-70', unitPrice: 9.75, unitCost: 5.66, quantity: 900 }),
+    ]);
+    expect(once.lineItems[0]?.unitPrice).toBe(9.75);
+    expect(once.lineItems[0]?.effectiveUnitPrice).toBe(9.36);
+    expect(once.lineItems[0]?.discountBps).toBe(400);
+    expect(once.lineItems[0]?.lineTotal).toBe(8_424);
+
+    // ...so feeding the priced lines back through the engine is a no-op.
+    const twice = priceProposal(once.lineItems);
+    expect(twice).toEqual(once);
+  });
+
+  it('is idempotent across a mixed proposal of tiered and non-tiered lines', () => {
+    const proposal = priceProposal([
+      paverItem({ quantity: 2000, unitPrice: 26, unitCost: 15 }), // 7% tier
+      paverItem({ quantity: 900, unitPrice: 9.75, unitCost: 5.66 }), // 4% tier
+      baseItem({ category: 'Drainage', unit: 'lf', quantity: 50, unitPrice: 46, unitCost: 27.6 }),
+    ]);
+
+    const repriced = priceProposal(proposal.lineItems);
+    expect(repriced).toEqual(proposal);
+    expect(repriced.total).toBe(proposal.total);
   });
 });
 

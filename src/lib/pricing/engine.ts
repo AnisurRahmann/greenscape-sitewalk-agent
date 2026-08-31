@@ -6,6 +6,11 @@
  *
  * All arithmetic runs in integer cents (see ./money); float dollars exist only
  * at the boundaries (catalog values in, proposal values out).
+ *
+ * Re-pricing is idempotent: unitPrice stays the catalog LIST price and the
+ * applied volume tier is recorded separately (discountBps), so running the
+ * engine over its own priced output — or over stored line items — applies the
+ * tier exactly once.
  */
 
 import { centsTimesBps, centsTimesRatio, fromCents, toCents } from './money';
@@ -56,9 +61,18 @@ export interface PricedLineItem {
   category: string | null;
   quantity: number;
   unit: string;
+  /** Catalog list price — NOT the discounted price. Persisting this is what
+   *  makes re-pricing stored line items idempotent. */
   unitPrice: number;
+  /** Volume tier actually applied to this line (0 when none). */
+  discountBps: number;
+  /** unitPrice after discountBps — what the line bills per unit. */
+  effectiveUnitPrice: number;
   unitCost: number;
   lineTotal: number;
+  /** Carried through so a priced line is itself a valid engine input. */
+  minQty: number | null;
+  materialsRatio: number | null;
   matchMethod: string;
   matchConfidence: number | null;
   transcriptEvidence: string | null;
@@ -90,6 +104,13 @@ function volumeDiscountBps(category: string | null | undefined, unit: string, qt
 
 const UNMATCHED_MARKER = '[Needs review — no catalog match]';
 
+/** Engine-owned math for rendering stored lines (PDF, public page): the list
+ *  price minus its recorded tier. Display paths must not re-derive this. */
+export function effectiveUnitPrice(listUnitPrice: number, discountBps: number): number {
+  const cents = toCents(listUnitPrice);
+  return fromCents(cents - centsTimesBps(cents, discountBps));
+}
+
 export function priceProposal(
   matchedItems: MatchedItemInput[],
   context: PricingContext = {},
@@ -117,8 +138,12 @@ export function priceProposal(
         quantity: item.quantity ?? 0,
         unit: item.unit ?? 'unknown',
         unitPrice: 0,
+        discountBps: 0,
+        effectiveUnitPrice: 0,
         unitCost: 0,
         lineTotal: 0,
+        minQty: item.minQty ?? null,
+        materialsRatio: item.materialsRatio ?? null,
         matchMethod: item.matchMethod ?? 'unmatched',
         matchConfidence: item.matchConfidence ?? null,
         transcriptEvidence: item.transcriptEvidence ?? null,
@@ -152,9 +177,15 @@ export function priceProposal(
       category: item.category ?? null,
       quantity,
       unit: item.unit ?? 'unknown',
-      unitPrice: fromCents(effectiveUnitPriceCents),
+      // List price out, tier recorded separately — never bake the discount
+      // into unitPrice, or re-pricing would discount the discount.
+      unitPrice: fromCents(unitPriceCents),
+      discountBps,
+      effectiveUnitPrice: fromCents(effectiveUnitPriceCents),
       unitCost: fromCents(unitCostCents),
       lineTotal: fromCents(lineTotalCents),
+      minQty: item.minQty ?? null,
+      materialsRatio: item.materialsRatio ?? null,
       matchMethod: item.matchMethod ?? 'manual',
       matchConfidence: item.matchConfidence ?? null,
       transcriptEvidence: item.transcriptEvidence ?? null,

@@ -147,7 +147,10 @@ async function main(): Promise<void> {
       description: 'pet grass, they have two goldens',
       qty: 900,
       unit: 'sqft',
-      unit_price: 9.36,
+      // Catalog list price; the 4% volume tier (900 sqft) is recorded
+      // separately so review repricing applies it exactly once.
+      unit_price: 9.75,
+      discount_bps: 400,
       unit_cost: 5.66,
       line_total: 8424,
       match_method: 'hybrid',
@@ -164,6 +167,7 @@ async function main(): Promise<void> {
       qty: 240,
       unit: 'sqft',
       unit_price: 16.5,
+      discount_bps: 0,
       unit_cost: 10.23,
       line_total: 3960,
       match_method: 'lexical',
@@ -180,6 +184,7 @@ async function main(): Promise<void> {
       qty: 50,
       unit: 'lf',
       unit_price: 46,
+      discount_bps: 0,
       unit_cost: 27.6,
       line_total: 2300,
       match_method: 'vector',

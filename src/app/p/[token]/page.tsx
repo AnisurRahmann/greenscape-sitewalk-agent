@@ -4,6 +4,7 @@ import { notFound } from 'next/navigation';
 import { z } from 'zod';
 
 import { getSupabaseAdmin } from '@/lib/db/client';
+import { effectiveUnitPrice } from '@/lib/pricing/engine';
 import { depositForTotal } from '@/lib/pdf/proposal';
 
 export const metadata: Metadata = { title: 'Your proposal — Greenscape Pro' };
@@ -47,7 +48,7 @@ export default async function PublicProposalPage({
 
   const { data: lines } = await db
     .from('proposal_line_items')
-    .select('description, qty, unit, unit_price, line_total, needs_review')
+    .select('description, qty, unit, unit_price, discount_bps, line_total, needs_review')
     .eq('proposal_id', proposal.id)
     .order('sort_order');
 
@@ -137,7 +138,9 @@ export default async function PublicProposalPage({
               <tr key={index} className="border-b last:border-0">
                 <td className="py-2 pr-2">{line.description}</td>
                 <td className="py-2 text-right tabular-nums">{line.qty}</td>
-                <td className="py-2 text-right tabular-nums">{usd(line.unit_price)}</td>
+                <td className="py-2 text-right tabular-nums">
+                  {usd(effectiveUnitPrice(line.unit_price, line.discount_bps))}
+                </td>
                 <td className="py-2 text-right font-medium tabular-nums">{usd(line.line_total)}</td>
               </tr>
             ))}

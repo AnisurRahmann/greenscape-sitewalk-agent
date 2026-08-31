@@ -2,6 +2,7 @@ import { renderToBuffer } from '@react-pdf/renderer';
 
 import { narrativeSchema } from '@/lib/agent/draftNarrative';
 import { getSupabaseAdmin } from '@/lib/db/client';
+import { effectiveUnitPrice } from '@/lib/pricing/engine';
 import { ProposalPdfDocument } from '@/lib/pdf/proposal';
 
 export interface EnsurePdfResult {
@@ -40,7 +41,7 @@ export async function ensureProposalPdf(proposalId: string): Promise<EnsurePdfRe
 
   const { data: lines, error: linesError } = await db
     .from('proposal_line_items')
-    .select('description, qty, unit, unit_price, line_total, needs_review, sort_order')
+    .select('description, qty, unit, unit_price, discount_bps, line_total, needs_review, sort_order')
     .eq('proposal_id', proposalId)
     .order('sort_order');
   if (linesError) throw new Error(linesError.message);
@@ -84,7 +85,7 @@ export async function ensureProposalPdf(proposalId: string): Promise<EnsurePdfRe
       description: line.description,
       quantity: line.qty,
       unit: line.unit,
-      unitPrice: line.unit_price,
+      unitPrice: effectiveUnitPrice(line.unit_price, line.discount_bps),
       lineTotal: line.line_total,
     })),
     optionalAddOns,

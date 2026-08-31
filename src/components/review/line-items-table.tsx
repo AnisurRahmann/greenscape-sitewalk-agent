@@ -11,8 +11,8 @@ export interface LineItemsTableProps {
   onChange: (lineId: string, patch: Partial<Pick<ReviewLine, 'quantity' | 'unitPrice' | 'evidenceVerified'>>) => void;
   onEditCommit: (lineId: string, field: 'quantity' | 'unit_price', before: number, after: number) => void;
   blockedLineIndexes: Set<number>;
-  /** Engine-computed values (coerced qty, discounted price, line total). */
-  computed: Array<{ quantity: number; unitPrice: number; lineTotal: number }>;
+  /** Engine-computed values (coerced qty, line total, applied volume tier). */
+  computed: Array<{ quantity: number; lineTotal: number; discountBps: number }>;
 }
 
 export function LineItemsTable({
@@ -57,6 +57,11 @@ export function LineItemsTable({
                       {line.matchMethod}
                     </span>
                     {line.sku && <span className="text-[10px] text-muted-foreground">{line.sku}</span>}
+                    {(computedLine?.discountBps ?? 0) > 0 && (
+                      <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-medium text-emerald-700">
+                        −{(computedLine!.discountBps / 100).toFixed(0)}% volume tier
+                      </span>
+                    )}
                     {isBlocked && (
                       <span className="text-[10px] font-semibold uppercase text-red-600">blocked</span>
                     )}
@@ -114,7 +119,7 @@ export function LineItemsTable({
                 />
               </label>
               <label className="flex flex-col text-[10px] text-muted-foreground">
-                Unit price $
+                List price $
                 <Input
                   type="number"
                   inputMode="decimal"

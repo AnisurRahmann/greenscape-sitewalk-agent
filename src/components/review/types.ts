@@ -8,7 +8,9 @@ export interface ReviewLine {
   category: string | null;
   quantity: number;
   unit: string;
+  /** Catalog list price — the tier in discountBps is applied by the engine. */
   unitPrice: number;
+  discountBps: number;
   unitCost: number;
   lineTotal: number;
   matchMethod: string;

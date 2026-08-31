@@ -52,6 +52,8 @@ export function ProposalReview(props: ProposalReviewProps) {
   const optionalLines = lines.filter((line) => line.isOptionalAddOn);
 
   // Live repricing through the REAL engine — identical math to the pipeline.
+  // Stored unit prices are catalog list prices, so the tier applies exactly
+  // once no matter how many times lines are re-priced.
   const live = useMemo(() => {
     const priced = priceProposal(mainLines.map(toEngineInput));
     // Engine lines keep input order; merge computed values onto the display rows.
@@ -60,10 +62,14 @@ export function ProposalReview(props: ProposalReviewProps) {
       return engineLine
         ? {
             quantity: engineLine.quantity,
-            unitPrice: engineLine.unitPrice,
             lineTotal: engineLine.lineTotal,
+            discountBps: engineLine.discountBps,
           }
-        : { quantity: line.quantity, unitPrice: line.unitPrice, lineTotal: line.lineTotal };
+        : {
+            quantity: line.quantity,
+            lineTotal: line.lineTotal,
+            discountBps: line.discountBps,
+          };
     });
 
     const guardrailLines = priced.lineItems.map((line) => ({
