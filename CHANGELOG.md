@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.14.0 — 2026-08-31
+- Added: /api/health liveness + database probe (503 when the DB is unreachable)
+- Added: demo seed script (npm run seed:demo) — one approved proposal and one needs_review proposal with two G6-blocked lines, idempotent, environment-agnostic
+- Added: client-bundle secret-leak gate (npm run verify:client) — scans served files for server-only env names and real secret values
+- Changed: maxDuration = 120 on the ingest, review and pipeline-status routes covering the pipeline and dispatch after() continuations
 ## v0.13.1 — 2026-08-31
 - Added: README with problem statement, ablation table, cost/latency budget, demo path, mermaid architecture and the scale-breakdown plan
 - Added: ARCHITECTURE.md decision log — eight major decisions with options considered, choices and accepted trade-offs
