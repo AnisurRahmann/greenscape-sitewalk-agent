@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.11.0 — 2026-08-31
+- Added: branded PDF proposal document (@react-pdf/renderer) — logo block, client/property details, scope narrative, priced line table, clearly separated optional add-ons, 50% deposit banner, terms and signature block
+- Added: server-side render-and-upload Server Action — PDFs land in the private 'proposals' storage bucket with pdf_path on the proposal and a one-hour signed download link
+- Added: public /p/[token] client-facing web view (no auth, capability token) for approved/sent proposals with a Pay deposit button and PDF download
 ## v0.10.0 — 2026-08-31
 - Added: /proposals review queue — status badge, lead, total, margin, guardrail flag count, generation cost, created time
 - Added: /proposals/[id] review screen — editable line items repriced live by the real pricing engine, match-method chips, confidence bars, amber/red review highlighting, and verbatim transcript evidence on every row
