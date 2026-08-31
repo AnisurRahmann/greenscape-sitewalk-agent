@@ -2,6 +2,10 @@ import { getSupabaseAdmin } from '@/lib/db/client';
 
 export const dynamic = 'force-dynamic';
 
+// The status read is fast, but this budget also covers the pipeline's
+// after() continuation on the same function.
+export const maxDuration = 120;
+
 /** Polling endpoint for pipeline progress: reads proposals.step_status. */
 export async function GET(
   _request: Request,
