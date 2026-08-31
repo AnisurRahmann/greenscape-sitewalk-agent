@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.5.0 — 2026-08-31
+- Added: scope extraction agent (src/lib/agent/extractScope.ts) — Sonnet tool-forced structured extraction, zod contract generating the tool schema, max 2 validation-error repair retries then typed ExtractionFailedError
+- Added: evidence verification — every span checked by normalised containment against the transcript, evidence_verified per item (rule 3)
+- Added: per-model pricing table with real-token cost accounting into agent_runs (rule 4)
+- Added: vitest unit suite (npm test) with mocked model client covering happy path, repair, hallucinated evidence and empty transcripts
 ## v0.4.0 — 2026-08-31
 - Added: /new capture page — lead details form plus tabbed audio (MediaRecorder webm, elapsed timer, direct-to-Storage signed upload) and typed-notes modes
 - Added: whisper-1 transcription (src/lib/ingest/transcribe.ts) with 120s timeout, $0.006/min cost computed in TS, and agent_runs audit on success and failure
