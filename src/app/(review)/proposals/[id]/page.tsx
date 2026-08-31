@@ -9,6 +9,9 @@ export const metadata: Metadata = { title: 'Review proposal — Greenscape Pro' 
 
 export const dynamic = 'force-dynamic';
 
+// Covers the approve/reject actions and their after() dispatch fan-out.
+export const maxDuration = 120;
+
 export default async function ProposalReviewPage({
   params,
 }: {
