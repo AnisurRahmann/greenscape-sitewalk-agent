@@ -1,0 +1,20 @@
+{
+  "slug": "02-pergola-kitchen-travertine",
+  "source": "fixtures/sitewalks/pergola-kitchen-travertine-46k.md",
+  "notes": "Fire pit is asked-about twice but explicitly deferred — committed=false, must not be priced.",
+  "expected_items": [
+    { "sku": "TRV-IVY-1624", "quantity": 280, "unit": "sqft", "committed": true, "correct_line_total": 7280.00 },
+    { "sku": "TRV-IVY-CT", "quantity": 20, "unit": "lf", "committed": true, "correct_line_total": 760.00 },
+    { "sku": "PG-WD-ATT", "quantity": 224, "unit": "sqft", "committed": true, "correct_line_total": 21952.00 },
+    { "sku": "PG-STAIN-CED", "quantity": 224, "unit": "sqft", "committed": true, "correct_line_total": 1008.00 },
+    { "sku": "OK-CTR-GRN", "quantity": 12, "unit": "lf", "committed": true, "correct_line_total": 12600.00 },
+    { "sku": "OK-GRILL-36", "quantity": 1, "unit": "ea", "committed": true, "correct_line_total": 5400.00 },
+    { "sku": "OK-SDBRN-2", "quantity": 1, "unit": "ea", "committed": true, "correct_line_total": 1850.00 },
+    { "sku": "OK-FRIDGE", "quantity": 1, "unit": "ea", "committed": true, "correct_line_total": 2350.00 },
+    { "sku": "OK-DOOR-DR", "quantity": 1, "unit": "ea", "committed": true, "correct_line_total": 1450.00 },
+    { "sku": "OK-SINK-HC", "quantity": 1, "unit": "ea", "committed": true, "correct_line_total": 1650.00 },
+    { "sku": "RW-SW-AB", "quantity": 22, "unit": "lf", "committed": true, "correct_line_total": 2596.00 },
+    { "sku": "HOA-PKG", "quantity": 1, "unit": "ea", "committed": true, "correct_line_total": 685.00 },
+    { "sku": "FF-PIT-SQ-ML", "quantity": 1, "unit": "ea", "committed": false, "correct_line_total": 0 }
+  ]
+}

@@ -1,0 +1,9 @@
+{
+  "slug": "06-lighting-makeover",
+  "source": "hand-written small job",
+  "expected_items": [
+    { "sku": "LL-PATH-BRS", "quantity": 6, "unit": "ea", "committed": true, "correct_line_total": 2070.00 },
+    { "sku": "LL-UPL-BRS", "quantity": 2, "unit": "ea", "committed": true, "correct_line_total": 790.00 },
+    { "sku": "LL-TR-300", "quantity": 1, "unit": "ea", "committed": true, "correct_line_total": 825.00 }
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "slug": "01-turf-paver-walkway",
+  "source": "fixtures/sitewalks/turf-paver-walkway-14k.md",
+  "notes": "Turf line is 900 sqft — over the 800 sqft volume tier, so the correct price includes the 4% unit discount (9.75 -> 9.36/sqft). Ramada is asked-about, not committed.",
+  "expected_items": [
+    { "sku": "TF-PET-70", "quantity": 900, "unit": "sqft", "committed": true, "correct_line_total": 8424.00 },
+    { "sku": "PV-CHL-60", "quantity": 240, "unit": "sqft", "committed": true, "correct_line_total": 3960.00 },
+    { "sku": "DR-FR-4", "quantity": 50, "unit": "lf", "committed": true, "correct_line_total": 2300.00 },
+    { "sku": "RM-WD-SHG", "quantity": 1, "unit": "ea", "committed": false, "correct_line_total": 0 }
+  ]
+}
