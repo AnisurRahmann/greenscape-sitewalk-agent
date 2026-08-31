@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.3.0 — 2026-08-31
+- Added: hybrid catalog retrieval — vector, lexical and pg_trgm strategies fused in Postgres with reciprocal rank fusion (k=60) via match_catalog_fused rpc
+- Added: matchCatalog() typed client with normalised confidence scoring and MATCH_CONFIDENCE_THRESHOLD (0.55) unmatched gating
+- Added: agent_runs auditing for query embedding calls (model, tokens, cost_usd, latency, status)
+- Added: retrieval eval harness (eval:retrieval) — 40 query/expected-SKU pairs reporting accuracy@1, accuracy@5 and MRR per strategy
 ## v0.2.0 — 2026-08-31
 - Added: Supabase schema — 10 tables with pgvector/pg_trgm, HNSW + GIN indexes, RLS deny-all, database-level approval gate (CHECK + trigger) and unique idempotency_key
 - Added: typed service-role server client (server-only) and Database types mirroring the migration
