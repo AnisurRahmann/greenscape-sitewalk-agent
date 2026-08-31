@@ -6,6 +6,10 @@ export const metadata: Metadata = {
   title: 'New site walk — Greenscape Pro',
 };
 
+// The ingest action returns immediately; this budget covers its after()
+// pipeline continuation (transcribe -> ... -> persist, 120s wall clock).
+export const maxDuration = 120;
+
 export default function NewSitewalkPage() {
   return (
     <div className="flex flex-col gap-6">

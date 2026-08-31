@@ -1,6 +1,6 @@
 {
   "name": "greenscape-sitewalk-agent",
-  "version": "0.13.1",
+  "version": "0.14.0",
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack",
@@ -11,7 +11,9 @@
     "db:embed": "tsx scripts/embed-catalog.ts",
     "eval:retrieval": "tsx scripts/eval-retrieval.ts",
     "test": "vitest run",
-    "eval:pipeline": "tsx --conditions=react-server scripts/eval-pipeline.ts"
+    "eval:pipeline": "tsx --conditions=react-server scripts/eval-pipeline.ts",
+    "seed:demo": "tsx scripts/seed-demo.ts",
+    "verify:client": "node scripts/verify-client-bundle.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.122.0",
