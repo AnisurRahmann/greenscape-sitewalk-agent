@@ -38,6 +38,8 @@ export interface NarrativeOptions {
   model?: string;
   maxTokens?: number;
   proposalId?: string | null;
+  /** Dead-man switch: aborts the in-flight model call when tripped. */
+  signal?: AbortSignal;
 }
 
 // ---------------------------------------------------------------------------
@@ -113,7 +115,10 @@ export interface NarrativeMessageCreateParams {
 
 export interface NarrativeClient {
   messages: {
-    create(args: NarrativeMessageCreateParams): Promise<NarrativeModelResponse>;
+    create(
+      args: NarrativeMessageCreateParams,
+      options?: { signal?: AbortSignal },
+    ): Promise<NarrativeModelResponse>;
   };
 }
 
@@ -269,8 +274,10 @@ function defaultClient(): NarrativeClient {
   const anthropic = new Anthropic();
   return {
     messages: {
-      create: async (args) => {
-        const response = await anthropic.messages.create(args);
+      create: async (args, options) => {
+        const response = await anthropic.messages.create(args, {
+          signal: options?.signal,
+        });
         const content: NarrativeResponseBlock[] = [];
         for (const block of response.content) {
           if (block.type === 'text') {
@@ -334,14 +341,17 @@ export async function draftNarrative(
     const startedAt = Date.now();
     let response: NarrativeModelResponse;
     try {
-      response = await client.messages.create({
-        model,
-        max_tokens: opts.maxTokens ?? 1500,
-        system: SYSTEM_PROMPT,
-        messages,
-        tools: [narrativeTool],
-        tool_choice: { type: 'tool', name: TOOL_NAME },
-      });
+      response = await client.messages.create(
+        {
+          model,
+          max_tokens: opts.maxTokens ?? 1500,
+          system: SYSTEM_PROMPT,
+          messages,
+          tools: [narrativeTool],
+          tool_choice: { type: 'tool', name: TOOL_NAME },
+        },
+        { signal: opts.signal },
+      );
     } catch (err) {
       await recordRun(runCtx, {
         model,
