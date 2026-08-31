@@ -394,6 +394,7 @@ export type Database = {
           pdf_path: string | null;
           public_token: string;
           created_at: string;
+          step_status: Json | null;
         };
         Insert: {
           id?: string;
@@ -416,6 +417,7 @@ export type Database = {
           pdf_path?: string | null;
           public_token?: string;
           created_at?: string;
+          step_status?: Json | null;
         };
         Update: {
           id?: string;
@@ -438,6 +440,7 @@ export type Database = {
           pdf_path?: string | null;
           public_token?: string;
           created_at?: string;
+          step_status?: Json | null;
         };
         Relationships: [
           {

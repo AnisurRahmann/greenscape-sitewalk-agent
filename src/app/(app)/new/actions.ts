@@ -2,6 +2,7 @@
 
 import { after } from 'next/server';
 
+import { runSitewalkPipeline } from '@/lib/agent/orchestrator';
 import { getSupabaseAdmin } from '@/lib/db/client';
 import {
   isSafeAudioPath,
@@ -9,7 +10,6 @@ import {
   type SubmitSitewalkInput,
   type SubmitSitewalkResult,
 } from '@/lib/ingest/schema';
-import { transcribeSiteWalk } from '@/lib/ingest/transcribe';
 
 export interface SignedSitewalkUpload {
   ok: boolean;
@@ -99,17 +99,16 @@ export async function submitSitewalk(
     return { ok: false, error: walkError?.message ?? 'failed to create site walk' };
   }
 
-  if (payload.inputMode === 'audio') {
-    after(async () => {
-      try {
-        await transcribeSiteWalk(siteWalk.id, payload.audioPath);
-      } catch (err) {
-        // Already audited to agent_runs; the transcript stays null and the
-        // proposal pipeline routes this walk to review.
-        console.error(`transcription failed for site walk ${siteWalk.id}:`, err);
+  // The full pipeline (transcribe -> ... -> persist) runs after the response
+  // is sent; the browser polls /api/pipeline-status/[siteWalkId] for live
+  // progress. Text mode skips transcription inside the pipeline.
+  after(() =>
+    runSitewalkPipeline(siteWalk.id).then((result) => {
+      if (result.status !== 'completed') {
+        console.warn(`pipeline ${siteWalk.id} ended as ${result.status}:`, result.message);
       }
-    });
-  }
+    }),
+  );
 
   return { ok: true, leadId: lead.id, siteWalkId: siteWalk.id };
 }
