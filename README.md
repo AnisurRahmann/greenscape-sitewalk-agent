@@ -19,7 +19,10 @@ single word reaches the customer.
 
 ## Live demo
 
-The app is deployed at **[URL]** — access password: `[access password]`.
+The app is deployed at **[URL]**. The demo is password gated — reviewers get the
+shared password in the submission email, not the repo. Local runs pass the same
+gate: set `DEMO_PASSWORD` + `SESSION_SECRET` in `.env.local` (see
+[.env.example](.env.example)).
 
 ## Ablation results
 
@@ -55,9 +58,9 @@ dead-man switch. The per-proposal model target is under $0.15.
 
 ## Demo
 
-A hosted demo is live at **[URL]** — access password: `[access password]`. The
-60-second local run is the full demo (see [Local setup](#local-setup)). With the
-repo cloned and Docker running:
+A hosted demo is live at **[URL]** (password gated — the password ships in the
+submission email). The 60-second local run is the full demo
+(see [Local setup](#local-setup)). With the repo cloned and Docker running:
 
 ```bash
 npm ci

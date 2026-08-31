@@ -2,6 +2,7 @@
 
 import { after } from 'next/server';
 
+import { requireSession } from '@/lib/auth/require-session';
 import { getSupabaseAdmin } from '@/lib/db/client';
 import { dispatchProposal } from '@/lib/dispatch';
 import { ensureProposalPdf } from '@/lib/dispatch/proposal-pdf';
@@ -16,6 +17,7 @@ export interface CommitLineEditInput {
 
 /** Persists a reviewed line edit and writes the before/after audit trail. */
 export async function commitLineEdit(input: CommitLineEditInput): Promise<{ ok: boolean; error?: string }> {
+  await requireSession();
   const db = getSupabaseAdmin();
 
   // Computed keys widen to `never` under the generated row types — branch instead.
@@ -51,6 +53,7 @@ export async function verifyLineEvidence(
   lineId: string,
   _proposalId: string,
 ): Promise<{ ok: boolean; error?: string }> {
+  await requireSession();
   const db = getSupabaseAdmin();
   const { error } = await db
     .from('proposal_line_items')
@@ -82,6 +85,7 @@ export interface ApproveInput {
 }
 
 export async function approveProposal(input: ApproveInput): Promise<{ ok: boolean; error?: string }> {
+  await requireSession();
   const db = getSupabaseAdmin();
   const now = new Date().toISOString();
 
@@ -132,6 +136,7 @@ export async function rejectProposal(
   reason: string,
 ): Promise<{ ok: boolean; error?: string }> {
   if (!reason.trim()) return { ok: false, error: 'A rejection reason is required.' };
+  await requireSession();
   const db = getSupabaseAdmin();
 
   const { error } = await db
@@ -165,6 +170,7 @@ export interface GeneratePdfResult {
 export async function generateProposalPdf(
   proposalId: string,
 ): Promise<GeneratePdfResult> {
+  await requireSession();
   const db = getSupabaseAdmin();
 
   let pdfPath: string;
