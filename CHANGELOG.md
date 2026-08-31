@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.4.0 — 2026-08-31
+- Added: /new capture page — lead details form plus tabbed audio (MediaRecorder webm, elapsed timer, direct-to-Storage signed upload) and typed-notes modes
+- Added: whisper-1 transcription (src/lib/ingest/transcribe.ts) with 120s timeout, $0.006/min cost computed in TS, and agent_runs audit on success and failure
+- Added: text input mode writes the transcript directly (no transcription cost) — the reliable demo fallback
+- Added: three contractor-voice sample transcripts in fixtures/sitewalks (14K / 46K / 95K jobs)
 ## v0.3.0 — 2026-08-31
 - Added: hybrid catalog retrieval — vector, lexical and pg_trgm strategies fused in Postgres with reciprocal rank fusion (k=60) via match_catalog_fused rpc
 - Added: matchCatalog() typed client with normalised confidence scoring and MATCH_CONFIDENCE_THRESHOLD (0.55) unmatched gating
