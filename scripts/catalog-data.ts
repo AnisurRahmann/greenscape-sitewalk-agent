@@ -23,6 +23,8 @@ export interface CatalogSeed {
   margin: number;
   minQty: number;
   notes?: string;
+  /** Share of the line's price that is materials (Phoenix tax basis). */
+  materialsRatio: number;
 }
 
 export interface CatalogInsertRow {
@@ -35,6 +37,7 @@ export interface CatalogInsertRow {
   unit_cost: number;
   min_qty: number;
   notes: string | null;
+  materials_ratio: number;
 }
 
 type ItemTuple = [
@@ -48,7 +51,13 @@ type ItemTuple = [
   notes?: string,
 ];
 
-function untag(category: string, items: ItemTuple[]): CatalogSeed[] {
+// Sections pass their materials share here; 0.45 is the Phoenix-typical
+// default for installed hardscape work (tax hits materials only).
+function untag(
+  category: string,
+  items: ItemTuple[],
+  materialsRatio = 0.45,
+): CatalogSeed[] {
   return items.map(([sku, name, unit, unitPrice, margin, minQty, description, notes]) => ({
     sku,
     category,
@@ -59,6 +68,7 @@ function untag(category: string, items: ItemTuple[]): CatalogSeed[] {
     minQty,
     description,
     notes,
+    materialsRatio,
   }));
 }
 
@@ -107,7 +117,7 @@ const pavers = untag('Pavers & Travertine', [
   ['PV-LIFT-RELAY', 'Paver Lift & Relay', 'sqft', 8.5, 0.4, 0, 'Careful lift, re-bed and relay of existing paver fields for repairs or utility access.'],
   ['PV-STEP-PVR', 'Paver Steps (per riser)', 'ea', 385.0, 0.4, 0, 'Modular paver step riser with retained gravel core and solid tread.'],
   ['PV-COP-BLN', 'Bullnose Concrete Pool Coping', 'lf', 32.0, 0.4, 0, 'Precast bullnose coping on pool edge, mortared set with waterline alignment.'],
-]);
+], 0.5);
 
 // ---------------------------------------------------------------------------
 // Concrete & Stamped (20)
@@ -157,7 +167,7 @@ const walls = untag('Retaining Walls', [
   ['RW-PIL-18', 'Wall Pilaster 18x18', 'ea', 265.0, 0.4, 0, 'Grouted pilaster with vertical rebar at wall expansion points.'],
   ['RW-GATE-COL', 'Gate Column / Framing', 'ea', 780.0, 0.4, 0, 'Reinforced gate column with embedded hardware for gates to 6 feet.'],
   ['RW-ENG-FEE', 'Structural Wall Engineering', 'ea', 2850.0, 0.35, 0, 'PE-stamped calcs and details for walls over 4 feet; permit-ready.'],
-]);
+], 0.5);
 
 // ---------------------------------------------------------------------------
 // Pergolas & Ramadas (12)
@@ -176,7 +186,7 @@ const pergolas = untag('Pergolas & Ramadas', [
   ['PG-ELEC-PKG', 'Pergola Electrical Package', 'ea', 685.0, 0.4, 0, 'Ceiling fan box, dimmable light circuit and GFCI rough-in to the pergola.'],
   ['PG-SAIL-POST', 'Shade Sail with Posts', 'ea', 3450.0, 0.4, 0, 'Tensioned commercial shade sail on galvanized posts with footings.'],
   ['PG-STAIN-CED', 'Cedar Stain & Seal', 'sqft', 4.5, 0.42, 0, 'Two-coat penetrating stain to all faces, masked and back-primed.'],
-]);
+], 0.4);
 
 // ---------------------------------------------------------------------------
 // Fire Features (10)
@@ -229,7 +239,7 @@ const kitchens = untag('Outdoor Kitchens', [
   ['OK-KEG', 'Outdoor Kegerator', 'ea', 2950.0, 0.36, 0, 'Weather-rated draft tower unit on a dedicated GFCI circuit.'],
   ['OK-GAS-WTR', 'Kitchen Gas & Water Rough-In', 'ea', 1850.0, 0.38, 0, 'Gas, water and waste stubs pressure-tested before finishes.'],
   ['OK-ELEC-PKG', 'Kitchen Electrical Package', 'ea', 950.0, 0.4, 0, 'GFCI circuits, task lighting and low-voltage under-counter outlets.'],
-]);
+], 0.5);
 
 // ---------------------------------------------------------------------------
 // Artificial Turf (8)
@@ -244,7 +254,7 @@ const turf = untag('Artificial Turf', [
   ['TF-INFILL-SIL', 'Silica Sand Infill', 'sqft', 0.85, 0.45, 0, 'Rounded silica infill for ballast and blade stand-up.'],
   ['TF-SEAM-ADH', 'Turf Seaming & Perimeter Detail', 'lf', 7.5, 0.42, 0, 'Glued seams, hidden nails and tucked edges at hardscape transitions.'],
   ['TF-BASE-AB', 'Turf Base — Class II AB + Weed Barrier', 'sqft', 3.25, 0.4, 0, '3-inch compacted AB with weed fabric, graded to drains.'],
-]);
+], 0.55);
 
 // ---------------------------------------------------------------------------
 // Irrigation (12)
@@ -263,7 +273,7 @@ const irrigation = untag('Irrigation', [
   ['IR-CAP-HEAD', 'Cap & Abandon Heads', 'ea', 45.0, 0.45, 0, 'Cap heads and laterals when converting zones to drip or hardscape.'],
   ['IR-POP-12', '12" Pop-Up Spray Head with Nozzle', 'ea', 68.0, 0.42, 0, '12-inch pop-up with matched-precipitation nozzle set to arc.'],
   ['IR-DP-1G', 'Pressure-Compensating Dripper 1 GPH', 'ea', 12.0, 0.45, 0, 'PC dripper on 1/4-inch distribution, flushed and tested.'],
-]);
+], 0.5);
 
 // ---------------------------------------------------------------------------
 // Landscape Lighting (12)
@@ -282,7 +292,7 @@ const lighting = untag('Landscape Lighting', [
   ['LL-ZONE-ADD', 'Zone Add-On to Existing Transformer', 'ea', 245.0, 0.42, 0, 'Add a tap and zone after confirming breaker capacity.'],
   ['LL-CTRL-APP', 'App Dimming / Zone Controller', 'ea', 385.0, 0.38, 0, 'Bluetooth app zones with dimming scenes.'],
   ['LL-TREE-KIT', 'Tree-Mount Uplight Kit', 'ea', 465.0, 0.4, 0, 'Canopy-mount uplight kit with bracket and glare shield.'],
-]);
+], 0.55);
 
 // ---------------------------------------------------------------------------
 // Planting & Trees (14)
@@ -303,7 +313,7 @@ const planting = untag('Planting & Trees', [
   ['PT-DRIP-NEW', 'New Plant Drip Lines & Emitters', 'ea', 285.0, 0.4, 0, 'Drip distribution for a planted area with adjustable emitters.'],
   ['PT-TR-RING', 'Granite Tree Ring (banded DG)', 'ea', 320.0, 0.4, 0, 'Steel-banded DG basin ring at the tree trunk.'],
   ['PT-MULCH-YD', 'Topdress / Mulch (per yard)', 'ea', 145.0, 0.42, 3, 'Bark or gravel topdress, beds dressed and raked clean.', 'Priced per cubic yard.'],
-]);
+], 0.5);
 
 // ---------------------------------------------------------------------------
 // Demolition & Haul-Off (8)
@@ -318,7 +328,7 @@ const demolition = untag('Demolition & Haul-Off', [
   ['DH-TREE-SM', 'Small Tree Removal (under 20 ft)', 'ea', 425.0, 0.38, 0, 'Cut, grind stump to 8 inches and haul debris.'],
   ['DH-HAUL-TR', 'Bulk Haul-Off (per trailer)', 'ea', 495.0, 0.4, 1, '12-yard trailer load to the dump; mixed inert debris.', 'Priced per trailer load.'],
   ['DH-WALL-DEM', 'Block Wall Demo', 'sqft', 9.5, 0.38, 50, 'Take down CMU walls, haul masonry and cap the footing flush.'],
-]);
+], 0.15);
 
 // ---------------------------------------------------------------------------
 // Grading (4)
@@ -329,7 +339,7 @@ const grading = untag('Grading', [
   ['GR-FINE-SF', 'Laser Fine Grade', 'sqft', 0.58, 0.4, 500, 'Laser-levelled finish readied for pavers or turf.'],
   ['GR-CUT-EXP', 'Cut/Fill Export (per yard)', 'ea', 95.0, 0.38, 5, 'Off-haul export per cubic yard including dump fees.', 'Priced per cubic yard.'],
   ['GR-DRAIN-RESLOPE', 'Re-Slope to Drain Corrections', 'sqft', 0.85, 0.4, 200, 'Correct negative drainage at foundations and hardscape toward a 2% minimum.'],
-]);
+], 0.2);
 
 // ---------------------------------------------------------------------------
 // Drainage (8)
@@ -360,7 +370,7 @@ const gravel = untag('Gravel & DG', [
   ['GD-RIP-RAP', 'Rip-Rap / Detail Boulders', 'ea', 425.0, 0.38, 1, 'Placed rip-rap or detail boulders, machine set.', 'Priced per ton placed.'],
   ['GD-AB-CLASS2', 'Class II Aggregate Base (per ton)', 'ea', 85.0, 0.38, 2, 'Class II AB delivered, spread, watered and compacted to 95%.', 'Priced per ton installed.'],
   ['GD-EDG-STEEL', 'Steel Landscape Edging', 'lf', 18.5, 0.4, 0, '4-inch steel edging staked every 30 inches, contoured to layout.'],
-]);
+], 0.6);
 
 // ---------------------------------------------------------------------------
 // Mobilization (3)
@@ -370,7 +380,7 @@ const mobilization = untag('Mobilization', [
   ['MOB-SM', 'Mobilization — Small Project', 'ea', 1850.0, 0.35, 1, 'Small-project setup: containers, temp fence, dumpsters and haul-route controls.'],
   ['MOB-LG', 'Mobilization — Large / Phased', 'ea', 3200.0, 0.35, 1, 'Phased-project setup with the site superintendent, staging and property protection.'],
   ['MOB-TELE-DAY', 'Telehandler / Boom Day Rate', 'day', 875.0, 0.38, 1, 'Operator and machine day rate for material placing.'],
-]);
+], 0.1);
 
 // ---------------------------------------------------------------------------
 // Permit Handling (3)
@@ -380,7 +390,7 @@ const permits = untag('Permit Handling', [
   ['PM-STD', 'Standard Building Permit Handling', 'ea', 950.0, 0.4, 1, 'Prepare and run standard patio, gazebo and wall permits through the City of Phoenix.'],
   ['PM-ENG', 'Engineering Plans & Permit Expediting', 'ea', 2850.0, 0.35, 1, 'PE drawings, engineering letters and expediting for structural scope.'],
   ['PM-GAS', 'Gas Line Permit & Inspection', 'ea', 650.0, 0.4, 1, 'Gas permit, pressure test and inspection scheduling.'],
-]);
+], 0.1);
 
 // ---------------------------------------------------------------------------
 // HOA Package Prep (2)
@@ -389,7 +399,7 @@ const permits = untag('Permit Handling', [
 const hoa = untag('HOA Package Prep', [
   ['HOA-PKG', 'HOA Submittal Package Prep', 'ea', 685.0, 0.42, 1, 'Architectural package: plans, product cutsheets, color board and association forms.'],
   ['HOA-RESUB', 'HOA Architectural Resubmittal', 'ea', 265.0, 0.42, 1, 'Revise and resubmit after ARC review comments.'],
-]);
+], 0.05);
 
 // ---------------------------------------------------------------------------
 // Design Fees (7)
@@ -403,7 +413,7 @@ const design = untag('Design Fees', [
   ['DS-CONSULT', 'On-Site Design Consultation', 'hr', 195.0, 0.45, 1, 'Designer walk-through with a conceptual markup.'],
   ['DS-VEN-BOARD', 'Material & Vendor Selection Board', 'ea', 850.0, 0.42, 1, 'Curated slab, paver and turf board with vendor sourcing.'],
   ['DS-ASBLT', 'As-Built Drawing Set', 'ea', 950.0, 0.42, 1, 'Record drawings reflecting field changes.'],
-]);
+], 0.15);
 
 // ---------------------------------------------------------------------------
 // Validation + DB row assembly
@@ -451,6 +461,9 @@ export const CATALOG_SEEDS: CatalogSeed[] = (() => {
       throw new Error(`margin ${item.margin} out of 0.35-0.45 range for ${item.sku}`);
     }
     if (item.unitPrice <= 0) throw new Error(`non-positive price for ${item.sku}`);
+    if (item.materialsRatio <= 0 || item.materialsRatio > 1) {
+      throw new Error(`materials ratio ${item.materialsRatio} out of (0, 1] for ${item.sku}`);
+    }
   }
   return SECTIONS;
 })();
@@ -466,6 +479,7 @@ export const CATALOG_ROWS: CatalogInsertRow[] = CATALOG_SEEDS.map((item) => ({
   unit_cost: round2(item.unitPrice * (1 - item.margin)),
   min_qty: item.minQty,
   notes: item.notes ?? null,
+  materials_ratio: item.materialsRatio,
 }));
 
 /** Text used for catalog embeddings: name + description + category. */
