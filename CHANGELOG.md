@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.9.0 — 2026-08-31
+- Added: staged pipeline orchestrator (runSitewalkPipeline) — transcribe, classify, extract, match, price, guardrails, narrative, persist with graceful per-step failure handling
+- Added: Haiku-tier classification gate that rejects non-site-walk audio before any Sonnet spend
+- Added: cost accounting module (costOf, proposalCost) with the $0.75 ceiling checked before every LLM call; 120s AbortController dead-man switch across step boundaries and in-flight calls
+- Added: live proposals.step_status progress (jsonb) with a polling endpoint /api/pipeline-status/[siteWalkId]; the ingest action triggers the pipeline via after() so HTTP responses never block
+- Added: optional add-ons flow — uncommitted extraction items are matched but priced at $0, guarded by G7
 ## v0.8.0 — 2026-08-31
 - Added: proposal narrative agent (src/lib/agent/draftNarrative.ts) — Sonnet tool-forced copy grounded only on priced line items, project summary and property context; the transcript and all cost data are structurally absent from its input
 - Added: numeric leakage post-check — every dollar figure in the copy must equal a computed total; violations retry once, then a deterministic template takes over
