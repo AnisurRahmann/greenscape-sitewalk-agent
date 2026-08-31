@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.13.0 — 2026-08-31
+- Added: golden evaluation set (evals/golden) — 10 hand-labelled site walks with expected catalog SKUs, quantities and correct prices, spanning small repairs, mixed multi-trade, heavy transcription noise, asks-but-doesn't-commit and HOA-heavy jobs
+- Added: four-variant ablation runner (eval:pipeline) — single-shot vs extraction+vector vs extraction+hybrid RRF vs hybrid+guardrails
+- Added: eval metrics — scope recall/precision, SKU accuracy@1, pricing error rate, hallucinated line rate and the headline false-flag rate, plus median latency and cost per proposal
+- Added: pure metric module with unit tests; results regenerate evals/RESULTS.md as a markdown table
 ## v0.12.0 — 2026-08-31
 - Added: dispatch layer (src/lib/dispatch) — on approval, email (Resend + PDF attachment), SMS (Twilio), Slack (internal total/margin/cost), Stripe Payment Link for the 50% deposit and GHL fire in parallel
 - Added: deterministic outbound idempotency keys (proposalId:channel:version) backed by the unique index, so a double-clicked approval cannot double-send

@@ -1,0 +1,11 @@
+{
+  "slug": "07-mixed-multitrade",
+  "source": "hand-written mixed multi-trade job",
+  "expected_items": [
+    { "sku": "CC-BR-4", "quantity": 100, "unit": "sqft", "committed": true, "correct_line_total": 1150.00 },
+    { "sku": "PV-CHL-60", "quantity": 400, "unit": "sqft", "committed": true, "correct_line_total": 6600.00 },
+    { "sku": "TF-PRE-90", "quantity": 600, "unit": "sqft", "committed": true, "correct_line_total": 6900.00 },
+    { "sku": "FF-PIT-SQ-ML", "quantity": 1, "unit": "ea", "committed": true, "correct_line_total": 7400.00 },
+    { "sku": "DR-FR-4", "quantity": 40, "unit": "lf", "committed": true, "correct_line_total": 1840.00 }
+  ]
+}

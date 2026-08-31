@@ -1,0 +1,8 @@
+{
+  "slug": "04-paver-repair",
+  "source": "hand-written small repair job",
+  "expected_items": [
+    { "sku": "PV-LIFT-RELAY", "quantity": 150, "unit": "sqft", "committed": true, "correct_line_total": 1275.00 },
+    { "sku": "PV-POLY-SAND", "quantity": 150, "unit": "sqft", "committed": true, "correct_line_total": 187.50 }
+  ]
+}

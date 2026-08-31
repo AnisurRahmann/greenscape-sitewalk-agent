@@ -1,0 +1,9 @@
+{
+  "slug": "08-heavy-transcription-noise",
+  "source": "hand-written heavy-noise transcript",
+  "notes": "Severe mishearings: 'pavars', 'travertyne', 'fyr pit'. Quantities garbled but recoverable.",
+  "expected_items": [
+    { "sku": "TRV-IVY-1624", "quantity": 800, "unit": "sqft", "committed": true, "correct_line_total": 20800.00 },
+    { "sku": "FF-PIT-RD-ML", "quantity": 1, "unit": "ea", "committed": true, "correct_line_total": 6900.00 }
+  ]
+}
