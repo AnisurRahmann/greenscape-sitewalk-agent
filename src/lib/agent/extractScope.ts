@@ -98,7 +98,10 @@ export interface ScopeMessageCreateParams {
 
 export interface ScopeExtractionClient {
   messages: {
-    create(args: ScopeMessageCreateParams): Promise<ScopeModelResponse>;
+    create(
+      args: ScopeMessageCreateParams,
+      options?: { signal?: AbortSignal },
+    ): Promise<ScopeModelResponse>;
   };
 }
 
@@ -154,6 +157,8 @@ export interface ExtractScopeOptions {
   maxTokens?: number;
   proposalId?: string | null;
   siteWalkId?: string | null;
+  /** Dead-man switch: aborts the in-flight model call when tripped. */
+  signal?: AbortSignal;
 }
 
 function normalizeForContainment(value: string): string {
@@ -187,8 +192,10 @@ function defaultClient(): ScopeExtractionClient {
   const anthropic = new Anthropic();
   return {
     messages: {
-      create: async (args) => {
-        const response = await anthropic.messages.create(args);
+      create: async (args, options) => {
+        const response = await anthropic.messages.create(args, {
+          signal: options?.signal,
+        });
         const content: ScopeResponseBlock[] = [];
         for (const block of response.content) {
           if (block.type === 'text') {
@@ -251,14 +258,17 @@ export async function extractScope(
 
   for (attempts = 1; attempts <= MAX_REPAIR_RETRIES + 1; attempts += 1) {
     const startedAt = Date.now();
-    const response = await client.messages.create({
-      model,
-      max_tokens: opts.maxTokens ?? 4096,
-      system: SYSTEM_PROMPT,
-      messages,
-      tools: [scopeTool],
-      tool_choice: { type: 'tool', name: TOOL_NAME },
-    });
+    const response = await client.messages.create(
+      {
+        model,
+        max_tokens: opts.maxTokens ?? 4096,
+        system: SYSTEM_PROMPT,
+        messages,
+        tools: [scopeTool],
+        tool_choice: { type: 'tool', name: TOOL_NAME },
+      },
+      { signal: opts.signal },
+    );
     const latencyMs = Date.now() - startedAt;
     const costUsd = estimateMessageCostUsd(model, response.usage.input_tokens, response.usage.output_tokens);
     totalCostUsd += costUsd ?? 0;
