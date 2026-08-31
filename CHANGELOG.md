@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.10.0 — 2026-08-31
+- Added: /proposals review queue — status badge, lead, total, margin, guardrail flag count, generation cost, created time
+- Added: /proposals/[id] review screen — editable line items repriced live by the real pricing engine, match-method chips, confidence bars, amber/red review highlighting, and verbatim transcript evidence on every row
+- Added: transcript drawer with evidence spans highlighted in context; guardrail blocks/warns grouped in the right rail with the 30% margin floor on the gauge
+- Added: approve gating on live-recomputed blocks and reject-with-reason; every edit writes an audit_log before/after entry
+- Changed: guardrail rules split into a pure module (rules.ts) importable by the client so the UI and the pipeline run identical checks
 ## v0.9.0 — 2026-08-31
 - Added: staged pipeline orchestrator (runSitewalkPipeline) — transcribe, classify, extract, match, price, guardrails, narrative, persist with graceful per-step failure handling
 - Added: Haiku-tier classification gate that rejects non-site-walk audio before any Sonnet spend
