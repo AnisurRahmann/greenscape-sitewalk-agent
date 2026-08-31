@@ -499,7 +499,80 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
-      [_ in never]: never;
+      match_catalog_fused: {
+        Args: {
+          p_query_embedding: number[];
+          p_raw_query: string;
+          p_match_count?: number;
+          p_rrf_k?: number;
+          p_strategy_depth?: number;
+        };
+        Returns: {
+          id: string;
+          sku: string;
+          category: string;
+          name: string;
+          description: string | null;
+          unit: string;
+          unit_price: number;
+          unit_cost: number;
+          min_qty: number;
+          notes: string | null;
+          fused_score: number;
+          vector_rank: number | null;
+          lexical_rank: number | null;
+          fuzzy_rank: number | null;
+          match_method: string;
+        }[];
+      };
+      search_catalog_fuzzy: {
+        Args: { p_raw_query: string; p_match_count?: number };
+        Returns: {
+          id: string;
+          sku: string;
+          category: string;
+          name: string;
+          description: string | null;
+          unit: string;
+          unit_price: number;
+          unit_cost: number;
+          min_qty: number;
+          notes: string | null;
+          score: number;
+        }[];
+      };
+      search_catalog_lexical: {
+        Args: { p_raw_query: string; p_match_count?: number };
+        Returns: {
+          id: string;
+          sku: string;
+          category: string;
+          name: string;
+          description: string | null;
+          unit: string;
+          unit_price: number;
+          unit_cost: number;
+          min_qty: number;
+          notes: string | null;
+          score: number;
+        }[];
+      };
+      search_catalog_vector: {
+        Args: { p_query_embedding: number[]; p_match_count?: number };
+        Returns: {
+          id: string;
+          sku: string;
+          category: string;
+          name: string;
+          description: string | null;
+          unit: string;
+          unit_price: number;
+          unit_cost: number;
+          min_qty: number;
+          notes: string | null;
+          score: number;
+        }[];
+      };
     };
     Enums: {
       [_ in never]: never;

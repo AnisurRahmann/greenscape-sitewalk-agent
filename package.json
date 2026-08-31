@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "db:seed": "tsx scripts/seed-catalog.ts",
-    "db:embed": "tsx scripts/embed-catalog.ts"
+    "db:embed": "tsx scripts/embed-catalog.ts",
+    "eval:retrieval": "tsx scripts/eval-retrieval.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.122.0",
