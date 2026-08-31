@@ -5,6 +5,7 @@ import { useMemo, useState, useTransition } from 'react';
 import {
   approveProposal,
   commitLineEdit,
+  generateProposalPdf,
   rejectProposal,
   verifyLineEvidence,
 } from '@/app/(review)/proposals/[id]/actions';
@@ -35,7 +36,17 @@ export function ProposalReview(props: ProposalReviewProps) {
   const [rejecting, setRejecting] = useState(false);
   const [reason, setReason] = useState('');
   const [transcriptOpen, setTranscriptOpen] = useState(false);
+  const [pdf, setPdf] = useState<{ pdfPath?: string; signedUrl?: string } | null>(null);
   const [isPending, startTransition] = useTransition();
+
+  const onGeneratePdf = () => {
+    startTransition(() => {
+      void generateProposalPdf(props.proposalId).then((outcome) => {
+        if (outcome.ok) setPdf({ pdfPath: outcome.pdfPath, signedUrl: outcome.signedUrl });
+        else console.error('pdf generation failed:', outcome.error);
+      });
+    });
+  };
 
   const mainLines = lines.filter((line) => !line.isOptionalAddOn);
   const optionalLines = lines.filter((line) => line.isOptionalAddOn);
@@ -174,9 +185,30 @@ export function ProposalReview(props: ProposalReviewProps) {
             Proposal {props.proposalId.slice(0, 8)} · status {props.status}
           </p>
         </div>
-        <Button type="button" variant="outline" size="sm" onClick={() => setTranscriptOpen(true)}>
-          View transcript
-        </Button>
+        <div className="flex items-center gap-2">
+          {pdf?.signedUrl && (
+            <a
+              href={pdf.signedUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="rounded-md border px-2.5 py-1.5 text-xs font-medium text-emerald-700 hover:bg-muted"
+            >
+              Download PDF ↓
+            </a>
+          )}
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={isPending}
+            onClick={onGeneratePdf}
+          >
+            {pdf ? 'Regenerate PDF' : 'Generate PDF'}
+          </Button>
+          <Button type="button" variant="outline" size="sm" onClick={() => setTranscriptOpen(true)}>
+            View transcript
+          </Button>
+        </div>
       </header>
 
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
