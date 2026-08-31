@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.7.0 — 2026-08-31
+- Added: nine-rule guardrail layer (src/lib/guardrails) — schema validity, evidence grounding, catalog grounding, margin floor, total bounds, quantity sanity, uncommitted-item separation, cost ceiling and a 120s wall-clock dead-man switch
+- Added: runGuardrails orchestrator — persists every rule result to guardrail_events and returns a verdict with inline per-line blocking rules for the UI
+- Changed: any blocking rule routes the proposal to needs_review; warns badge without gating; cost/wall-clock failures abort the run
+- Added: explicit record of the future auto-approve tier conditions (total < $15k, zero blocks, zero warns, match_confidence > 0.90) — approval remains human-only for now
+- Added: 27 guardrail unit tests (pass + fail per rule, verdict routing, abort and persistence resilience)
 ## v0.6.0 — 2026-08-31
 - Added: deterministic pricing engine (src/lib/pricing/engine.ts) — volume tiers, min_qty coercion, mobilization waiver at $40k, itemised 5% contingency, Phoenix 8.6% tax on materials only; zero LLM involvement
 - Added: integer-cents money module — every currency value rounds through a single helper, no float arithmetic on money
