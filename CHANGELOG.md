@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.13.1 — 2026-08-31
+- Added: README with problem statement, ablation table, cost/latency budget, demo path, mermaid architecture and the scale-breakdown plan
+- Added: ARCHITECTURE.md decision log — eight major decisions with options considered, choices and accepted trade-offs
+- Changed: .env.example rewritten — every variable documented with source and purpose; APP_URL replaces NEXT_PUBLIC_APP_URL for outbound links
 ## v0.13.0 — 2026-08-31
 - Added: golden evaluation set (evals/golden) — 10 hand-labelled site walks with expected catalog SKUs, quantities and correct prices, spanning small repairs, mixed multi-trade, heavy transcription noise, asks-but-doesn't-commit and HOA-heavy jobs
 - Added: four-variant ablation runner (eval:pipeline) — single-shot vs extraction+vector vs extraction+hybrid RRF vs hybrid+guardrails
