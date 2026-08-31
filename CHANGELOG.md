@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.8.0 — 2026-08-31
+- Added: proposal narrative agent (src/lib/agent/draftNarrative.ts) — Sonnet tool-forced copy grounded only on priced line items, project summary and property context; the transcript and all cost data are structurally absent from its input
+- Added: numeric leakage post-check — every dollar figure in the copy must equal a computed total; violations retry once, then a deterministic template takes over
+- Added: deterministic timeline sentence from total value (2 weeks under $20K, 3-4 weeks to $50K, 5-6 weeks above)
+- Added: agent_runs auditing for narrative attempts; 7 new unit tests (58 total)
 ## v0.7.0 — 2026-08-31
 - Added: nine-rule guardrail layer (src/lib/guardrails) — schema validity, evidence grounding, catalog grounding, margin floor, total bounds, quantity sanity, uncommitted-item separation, cost ceiling and a 120s wall-clock dead-man switch
 - Added: runGuardrails orchestrator — persists every rule result to guardrail_events and returns a verdict with inline per-line blocking rules for the UI
