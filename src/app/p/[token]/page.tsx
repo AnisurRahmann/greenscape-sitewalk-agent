@@ -65,9 +65,20 @@ export default async function PublicProposalPage({
   );
 
   const deposit = depositForTotal(proposal.total ?? 0);
-  // Stripe checkout wiring comes with the payments phase; the button links to
-  // a payment link when the environment provides one.
-  const payHref = process.env.NEXT_PUBLIC_STRIPE_DEPOSIT_LINK ?? '#';
+
+  // The dispatch layer stores the real Stripe payment link on the sent stripe
+  // outbound event; fall back to a static payment link env, then '#'.
+  const { data: stripeEvent } = await db
+    .from('outbound_events')
+    .select('payload')
+    .eq('proposal_id', proposal.id)
+    .eq('channel', 'stripe')
+    .eq('status', 'sent')
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const stripePayload = stripeEvent?.payload as { payment_link?: string } | null;
+  const payHref = stripePayload?.payment_link ?? process.env.NEXT_PUBLIC_STRIPE_DEPOSIT_LINK ?? '#';
 
   let pdfUrl: string | null = null;
   if (proposal.pdf_path) {
