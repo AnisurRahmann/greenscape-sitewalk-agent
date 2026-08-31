@@ -91,7 +91,7 @@ export async function dispatchProposal(proposalId: string): Promise<DispatchSumm
 
   // Stripe first: the payment link must exist before email/sms reference it.
   let paymentLinkUrl: string | null = null;
-  const stripeOutcome = await runChannel(
+  const _stripeOutcome = await runChannel(
     'stripe',
     context,
     { deposit: deposit, purpose: '50% deposit payment link' },
