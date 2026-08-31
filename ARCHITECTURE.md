@@ -30,10 +30,11 @@ value is that the number on the page is reproducible.
 inside Postgres as a set-returning function.
 
 **Chosen.** All three strategies plus reciprocal rank fusion (k=60) inside Postgres
-(`match_catalog_fused`, migration 0002), because the golden cases show the failure
-modes are complementary: lexical nails exact names and misses colloquial phrasing,
-trigrams rescue mishearings ("pergula", 0.5 similarity — below Supabase's default
-0.6 trigram threshold, so the function pins 0.3), vectors carry meaning.
+(`match_catalog_fused`, migration 0002), because the failure modes are
+complementary: lexical nails exact names and misses colloquial phrasing, trigrams
+rescue mishearings (a hand-checked pg_trgm value, not a measured eval result:
+"pergula" misheard as "pergola" scores 0.5 similarity — below Supabase's default
+0.6 trigram threshold, which is why the function pins 0.3), vectors carry meaning.
 
 **Trade-off accepted.** SQL functions are harder to iterate on than TypeScript, and
 the pg_trgm threshold footgun (Supabase ships 0.6) required pinning inside the
