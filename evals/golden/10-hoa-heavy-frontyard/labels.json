@@ -1,0 +1,16 @@
+{
+  "slug": "10-hoa-heavy-frontyard",
+  "source": "hand-written HOA-heavy job",
+  "expected_items": [
+    { "sku": "RW-FW-PHX", "quantity": 300, "unit": "sqft", "committed": true, "correct_line_total": 14400.00 },
+    { "sku": "RW-FW-CAP", "quantity": 60, "unit": "lf", "committed": true, "correct_line_total": 1320.00 },
+    { "sku": "RW-FW-STU", "quantity": 300, "unit": "sqft", "committed": true, "correct_line_total": 4200.00 },
+    { "sku": "PT-TR-24", "quantity": 3, "unit": "ea", "committed": true, "correct_line_total": 2355.00 },
+    { "sku": "PT-SHR-15", "quantity": 10, "unit": "ea", "committed": true, "correct_line_total": 1450.00 },
+    { "sku": "LL-PATH-BRS", "quantity": 4, "unit": "ea", "committed": true, "correct_line_total": 1380.00 },
+    { "sku": "DS-2D", "quantity": 1, "unit": "ea", "committed": true, "correct_line_total": 1950.00 },
+    { "sku": "HOA-PKG", "quantity": 1, "unit": "ea", "committed": true, "correct_line_total": 685.00 },
+    { "sku": "HOA-RESUB", "quantity": 2, "unit": "ea", "committed": true, "correct_line_total": 530.00 },
+    { "sku": "PM-STD", "quantity": 1, "unit": "ea", "committed": true, "correct_line_total": 950.00 }
+  ]
+}

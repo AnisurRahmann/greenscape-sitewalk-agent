@@ -1,0 +1,8 @@
+{
+  "slug": "05-irrigation-repair",
+  "source": "hand-written small repair job",
+  "expected_items": [
+    { "sku": "IR-VALVE-REP", "quantity": 2, "unit": "ea", "committed": true, "correct_line_total": 890.00 },
+    { "sku": "IR-CTRL-SM8", "quantity": 1, "unit": "ea", "committed": true, "correct_line_total": 985.00 }
+  ]
+}

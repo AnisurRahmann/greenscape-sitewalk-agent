@@ -1,0 +1,11 @@
+{
+  "slug": "09-asks-three-commits-one",
+  "source": "hand-written asks-three-commits-one",
+  "notes": "Three asked-about items (fire pit, waterfall, kitchen counter) must land in optional add-ons / not priced; only the travertine patio is committed.",
+  "expected_items": [
+    { "sku": "TRV-IVY-FPS", "quantity": 500, "unit": "sqft", "committed": true, "correct_line_total": 13250.00 },
+    { "sku": "FF-PIT-SQ-ML", "quantity": 1, "unit": "ea", "committed": false, "correct_line_total": 0 },
+    { "sku": "WF-PWL-STD", "quantity": 1, "unit": "ea", "committed": false, "correct_line_total": 0 },
+    { "sku": "OK-CTR-GRN", "quantity": 10, "unit": "lf", "committed": false, "correct_line_total": 0 }
+  ]
+}

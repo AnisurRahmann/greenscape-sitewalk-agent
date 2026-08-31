@@ -1,0 +1,32 @@
+{
+  "slug": "03-pool-surround",
+  "source": "fixtures/sitewalks/pool-surround-95k.md",
+  "notes": "Fireplace is asked-about and deferred ('next year maybe'). Boulder wall is priced per ton placed via the ea unit.",
+  "expected_items": [
+    { "sku": "TRV-IVY-POOL", "quantity": 750, "unit": "sqft", "committed": true, "correct_line_total": 21375.00 },
+    { "sku": "TRV-IVY-CT", "quantity": 95, "unit": "lf", "committed": true, "correct_line_total": 3610.00 },
+    { "sku": "WF-PWL-LG", "quantity": 1, "unit": "ea", "committed": true, "correct_line_total": 18500.00 },
+    { "sku": "FF-BOWL-CF", "quantity": 2, "unit": "ea", "committed": true, "correct_line_total": 5700.00 },
+    { "sku": "FF-GAS-RUN", "quantity": 70, "unit": "lf", "committed": true, "correct_line_total": 2940.00 },
+    { "sku": "RW-BLD-TON", "quantity": 20, "unit": "ea", "committed": true, "correct_line_total": 6500.00 },
+    { "sku": "DR-FR-6", "quantity": 60, "unit": "lf", "committed": true, "correct_line_total": 3720.00 },
+    { "sku": "LL-UPL-BRS", "quantity": 4, "unit": "ea", "committed": true, "correct_line_total": 1580.00 },
+    { "sku": "LL-PATH-BRS", "quantity": 6, "unit": "ea", "committed": true, "correct_line_total": 2070.00 },
+    { "sku": "LL-STEP-DECK", "quantity": 8, "unit": "ea", "committed": true, "correct_line_total": 2280.00 },
+    { "sku": "LL-TR-600", "quantity": 1, "unit": "ea", "committed": true, "correct_line_total": 1150.00 },
+    { "sku": "LL-CTRL-APP", "quantity": 1, "unit": "ea", "committed": true, "correct_line_total": 385.00 },
+    { "sku": "PT-TR-36", "quantity": 3, "unit": "ea", "committed": true, "correct_line_total": 5550.00 },
+    { "sku": "PT-AGV-30", "quantity": 4, "unit": "ea", "committed": true, "correct_line_total": 1540.00 },
+    { "sku": "PT-SHR-15", "quantity": 12, "unit": "ea", "committed": true, "correct_line_total": 1740.00 },
+    { "sku": "PT-ACC-5", "quantity": 10, "unit": "ea", "committed": true, "correct_line_total": 580.00 },
+    { "sku": "GD-DG-MGD-STB", "quantity": 400, "unit": "sqft", "committed": true, "correct_line_total": 1640.00 },
+    { "sku": "IR-ZN-DP", "quantity": 3, "unit": "ea", "committed": true, "correct_line_total": 1455.00 },
+    { "sku": "PT-TR-RING", "quantity": 3, "unit": "ea", "committed": true, "correct_line_total": 960.00 },
+    { "sku": "MOB-LG", "quantity": 1, "unit": "ea", "committed": true, "correct_line_total": 3200.00 },
+    { "sku": "DS-3D", "quantity": 1, "unit": "ea", "committed": true, "correct_line_total": 4850.00 },
+    { "sku": "PM-ENG", "quantity": 1, "unit": "ea", "committed": true, "correct_line_total": 2850.00 },
+    { "sku": "HOA-PKG", "quantity": 1, "unit": "ea", "committed": true, "correct_line_total": 685.00 },
+    { "sku": "PM-GAS", "quantity": 1, "unit": "ea", "committed": true, "correct_line_total": 650.00 },
+    { "sku": "FF-PLC-CST", "quantity": 1, "unit": "ea", "committed": false, "correct_line_total": 0 }
+  ]
+}

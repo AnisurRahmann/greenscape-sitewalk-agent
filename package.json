@@ -10,7 +10,8 @@
     "db:seed": "tsx scripts/seed-catalog.ts",
     "db:embed": "tsx scripts/embed-catalog.ts",
     "eval:retrieval": "tsx scripts/eval-retrieval.ts",
-    "test": "vitest run"
+    "test": "vitest run",
+    "eval:pipeline": "tsx --conditions=react-server scripts/eval-pipeline.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.122.0",
