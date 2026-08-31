@@ -269,6 +269,7 @@ export type Database = {
           provider_message_id: string | null;
           status: string | null;
           attempts: number;
+          error: string | null;
           created_at: string;
         };
         Insert: {
@@ -280,6 +281,7 @@ export type Database = {
           provider_message_id?: string | null;
           status?: string | null;
           attempts?: number;
+          error?: string | null;
           created_at?: string;
         };
         Update: {
@@ -291,6 +293,7 @@ export type Database = {
           provider_message_id?: string | null;
           status?: string | null;
           attempts?: number;
+          error?: string | null;
           created_at?: string;
         };
         Relationships: [

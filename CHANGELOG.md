@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.12.0 — 2026-08-31
+- Added: dispatch layer (src/lib/dispatch) — on approval, email (Resend + PDF attachment), SMS (Twilio), Slack (internal total/margin/cost), Stripe Payment Link for the 50% deposit and GHL fire in parallel
+- Added: deterministic outbound idempotency keys (proposalId:channel:version) backed by the unique index, so a double-clicked approval cannot double-send
+- Added: retry with exponential backoff (3 attempts) on every external call, with attempts and errors recorded on outbound_events
+- Added: swappable GHL adapter (GhlHttpClient / GhlMockClient via GHL_MODE, default mock) — mock writes outbound_events and posts to Slack; the HTTP client is written to the documented API v2 shape but unverified against a live account (disclosed in-code)
 ## v0.11.0 — 2026-08-31
 - Added: branded PDF proposal document (@react-pdf/renderer) — logo block, client/property details, scope narrative, priced line table, clearly separated optional add-ons, 50% deposit banner, terms and signature block
 - Added: server-side render-and-upload Server Action — PDFs land in the private 'proposals' storage bucket with pdf_path on the proposal and a one-hour signed download link
