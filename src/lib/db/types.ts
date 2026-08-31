@@ -118,6 +118,7 @@ export type Database = {
           notes: string | null;
           embedding: string | null;
           search_tsv: string;
+          materials_ratio: number;
         };
         Insert: {
           id?: string;
@@ -131,6 +132,7 @@ export type Database = {
           min_qty?: number;
           notes?: string | null;
           embedding?: string | null;
+          materials_ratio?: number;
         };
         Update: {
           id?: string;
@@ -144,6 +146,7 @@ export type Database = {
           min_qty?: number;
           notes?: string | null;
           embedding?: string | null;
+          materials_ratio?: number;
         };
         Relationships: [];
       };
