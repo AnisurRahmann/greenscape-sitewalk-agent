@@ -146,20 +146,13 @@ export function ProposalReview(props: ProposalReviewProps) {
 
   const onApprove = () => {
     startTransition(() => {
-      void approveProposal({
-        proposalId: props.proposalId,
-        totals: {
-          subtotal: live.priced.subtotal,
-          mobilizationFee: live.priced.mobilizationFee,
-          contingency: live.priced.contingency,
-          tax: live.priced.tax,
-          total: live.priced.total,
-          marginPct: live.priced.marginPct,
-        },
-      }).then((outcome) => {
-        if (outcome.ok) window.location.reload();
-        else console.error('approve failed:', outcome.error);
-      });
+      // No totals sent: the server reprices from the database (CLAUDE.md rule 1).
+      void approveProposal({ proposalId: props.proposalId })
+        .then((outcome) => {
+          if (outcome.ok) window.location.reload();
+          else console.error('approve failed:', outcome.error);
+        })
+        .catch((err: unknown) => console.error('approve refused:', err));
     });
   };
 

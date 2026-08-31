@@ -6,6 +6,10 @@ import { requireSession } from '@/lib/auth/require-session';
 import { getSupabaseAdmin } from '@/lib/db/client';
 import { dispatchProposal } from '@/lib/dispatch';
 import { ensureProposalPdf } from '@/lib/dispatch/proposal-pdf';
+import {
+  repriceStoredProposal,
+  ApprovalBlockedError,
+} from '@/lib/review/reprice-proposal';
 
 export interface CommitLineEditInput {
   lineId: string;
@@ -73,20 +77,27 @@ export async function verifyLineEvidence(
 
 export interface ApproveInput {
   proposalId: string;
-  /** Client totals recomputed by the real pricing engine as Marcus edited. */
-  totals: {
-    subtotal: number;
-    mobilizationFee: number;
-    contingency: number;
-    tax: number;
-    total: number;
-    marginPct: number;
-  };
 }
 
+/**
+ * Approval is server-authoritative (CLAUDE.md rule 1): line edits have
+ * already been persisted by commitLineEdit, so this reprices the proposal
+ * from the database, refuses on any blocking rule, and persists only what
+ * the engine computed here. A totals payload sent by a client is ignored.
+ */
 export async function approveProposal(input: ApproveInput): Promise<{ ok: boolean; error?: string }> {
   await requireSession();
   const db = getSupabaseAdmin();
+
+  const repriced = await repriceStoredProposal(db, input.proposalId);
+  if (!repriced) return { ok: false, error: 'proposal not found' };
+
+  const blockedBy = repriced.results
+    .filter((result) => !result.passed && result.severity === 'block')
+    .map((result) => result.rule);
+  if (blockedBy.length > 0) throw new ApprovalBlockedError(blockedBy);
+
+  const { priced } = repriced;
   const now = new Date().toISOString();
 
   const { error } = await db
@@ -95,12 +106,12 @@ export async function approveProposal(input: ApproveInput): Promise<{ ok: boolea
       status: 'approved',
       approved_by: 'review-ui',
       approved_at: now,
-      subtotal: input.totals.subtotal,
-      mobilization_fee: input.totals.mobilizationFee,
-      contingency: input.totals.contingency,
-      tax: input.totals.tax,
-      total: input.totals.total,
-      margin_pct: input.totals.marginPct,
+      subtotal: priced.subtotal,
+      mobilization_fee: priced.mobilizationFee,
+      contingency: priced.contingency,
+      tax: priced.tax,
+      total: priced.total,
+      margin_pct: priced.marginPct,
     })
     .eq('id', input.proposalId);
   if (error) return { ok: false, error: error.message };
@@ -110,7 +121,19 @@ export async function approveProposal(input: ApproveInput): Promise<{ ok: boolea
     action: 'proposal.approved',
     entity_type: 'proposal',
     entity_id: input.proposalId,
-    after: { status: 'approved', approved_at: now, totals: input.totals },
+    after: {
+      status: 'approved',
+      approved_at: now,
+      totals_source: 'server_repriced',
+      totals: {
+        subtotal: priced.subtotal,
+        mobilizationFee: priced.mobilizationFee,
+        contingency: priced.contingency,
+        tax: priced.tax,
+        total: priced.total,
+        marginPct: priced.marginPct,
+      },
+    },
   });
 
   // Fan out email/sms/slack/stripe/ghl after the response — idempotency keys
