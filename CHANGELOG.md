@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.6.0 — 2026-08-31
+- Added: deterministic pricing engine (src/lib/pricing/engine.ts) — volume tiers, min_qty coercion, mobilization waiver at $40k, itemised 5% contingency, Phoenix 8.6% tax on materials only; zero LLM involvement
+- Added: integer-cents money module — every currency value rounds through a single helper, no float arithmetic on money
+- Added: catalog_items.materials_ratio column (default 0.45) with per-section seed values from bulk materials (0.6) to paperwork (0.05)
+- Added: unmatched items carried visibly at $0 with needs_review instead of being dropped
+- Added: 19 pricing tests incl. tier/waiver boundary cases and a seeded property test proving subtotal === sum of line totals in exact cents
 ## v0.5.0 — 2026-08-31
 - Added: scope extraction agent (src/lib/agent/extractScope.ts) — Sonnet tool-forced structured extraction, zod contract generating the tool schema, max 2 validation-error repair retries then typed ExtractionFailedError
 - Added: evidence verification — every span checked by normalised containment against the transcript, evidence_verified per item (rule 3)
