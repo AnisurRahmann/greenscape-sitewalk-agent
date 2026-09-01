@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.16.0 — 2026-09-02
+- Added: LLM_PROVIDER switch (anthropic default | openai) — with openai, chat tiers run on gpt-4o-mini (classify) and gpt-4o (extract/narrative) so a single OPENAI_API_KEY covers chat, Whisper transcription and embeddings; a switch, not a fallback, and audit rows record the model that actually answered
+- Added: GPT-4o and GPT-4o-mini list prices in the rate table
+- Added: first full pipeline ablation run (10 golden cases x 4 variants, LLM_PROVIDER=openai) — results in evals/RESULTS.md and the README with date and commit; in this run staged variants underperformed the single-shot baseline, and staged costs print $0.0000 due to unpriced dated snapshot model names (documented in RESULTS.md, numbers unedited)
 ## v0.15.0 — 2026-09-01
 - Added: shared-password login gate for demo deployment (DEMO_PASSWORD + SESSION_SECRET env vars required; /p/[token] and /api/health stay public)
 - Added: app launcher UI replacing the template landing page
