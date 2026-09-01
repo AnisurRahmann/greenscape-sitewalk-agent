@@ -4,7 +4,9 @@ import { z } from 'zod';
 import { recordAgentRun, type AgentRunContext } from '@/lib/agent-runs';
 
 import { costOf } from './cost';
-import { HAIKU_MODEL } from './pricing-table';
+import { tierModel } from './pricing-table';
+import { selectChatClient } from '@/lib/llm/chat-provider';
+import { openaiChatClient } from '@/lib/llm/openai-chat';
 
 /**
  * The cheap gate: a Haiku-tier pass that decides whether a transcript is a
@@ -41,6 +43,8 @@ export interface ClassificationClient {
         | { type: 'tool_use'; id: string; name: string; input: unknown }
       >;
       usage: { input_tokens: number; output_tokens: number };
+      /** The model that actually answered — set by provider adapters. */
+      model?: string;
     }>;
   };
 }
@@ -69,16 +73,11 @@ export const FALLBACK_CLASSIFICATION: Classification = {
   size_band: 'mid',
 };
 
-export async function classifyTranscript(
-  transcript: string,
-  opts: ClassifyOptions = {},
-): Promise<{ classification: Classification }> {
-  const client =
-    opts.client ??
-    ((): ClassificationClient => {
-      const anthropic = new Anthropic();
-      return {
-        messages: {
+/** The Anthropic adapter (Haiku tier). */
+function anthropicClient(): ClassificationClient {
+  const anthropic = new Anthropic();
+  return {
+    messages: {
       create: async (args, options) => {
         const response = await anthropic.messages.create(args, {
           signal: options?.signal,
@@ -99,22 +98,41 @@ export async function classifyTranscript(
             input_tokens: response.usage.input_tokens,
             output_tokens: response.usage.output_tokens,
           },
+          model: response.model,
         };
       },
-        },
-      };
-    })();
+    },
+  };
+}
+
+function defaultClient(): ClassificationClient {
+  // Provider switch (LLM_PROVIDER): the configured provider owns every
+  // request — failures fail loudly rather than crossing providers.
+  return selectChatClient({
+    anthropic: anthropicClient,
+    openai: () => openaiChatClient(tierModel('fast')),
+  });
+}
+
+export async function classifyTranscript(
+  transcript: string,
+  opts: ClassifyOptions = {},
+): Promise<{ classification: Classification }> {
+  const client = opts.client ?? defaultClient();
   const recordRun = opts.recordRun ?? recordAgentRun;
   const runCtx: AgentRunContext = {
     step: 'classify',
     proposalId: opts.proposalId ?? null,
   };
 
+  // The audit row must name the model that actually answered (rule 4), which
+  // differs from the tier default whenever the provider adapter maps it.
+  let attemptedModel = tierModel('fast');
   const startedAt = Date.now();
   try {
     const response = await client.messages.create(
       {
-        model: HAIKU_MODEL,
+        model: tierModel('fast'),
         max_tokens: 300,
         system: SYSTEM_PROMPT,
         messages: [
@@ -134,6 +152,7 @@ export async function classifyTranscript(
       },
       { signal: opts.signal },
     );
+    attemptedModel = response.model ?? tierModel('fast');
 
     const toolUse = response.content.find(
       (block): block is { type: 'tool_use'; id: string; name: string; input: unknown } =>
@@ -148,10 +167,10 @@ export async function classifyTranscript(
     }
 
     await recordRun(runCtx, {
-      model: HAIKU_MODEL,
+      model: attemptedModel,
       tokensIn: response.usage.input_tokens,
       tokensOut: response.usage.output_tokens,
-      costUsd: costOf(HAIKU_MODEL, response.usage.input_tokens, response.usage.output_tokens),
+      costUsd: costOf(attemptedModel, response.usage.input_tokens, response.usage.output_tokens),
       latencyMs: Date.now() - startedAt,
       status: 'ok',
     });
@@ -159,7 +178,7 @@ export async function classifyTranscript(
     return { classification: parsed.data };
   } catch (err) {
     await recordRun(runCtx, {
-      model: HAIKU_MODEL,
+      model: attemptedModel,
       tokensIn: null,
       tokensOut: null,
       costUsd: 0,

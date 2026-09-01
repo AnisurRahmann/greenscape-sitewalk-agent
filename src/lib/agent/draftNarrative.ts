@@ -3,7 +3,9 @@ import { z } from 'zod';
 
 import { recordAgentRun, type AgentRunContext } from '@/lib/agent-runs';
 
-import { estimateMessageCostUsd, SONNET_MODEL } from './pricing-table';
+import { estimateMessageCostUsd, tierModel } from './pricing-table';
+import { selectChatClient } from '@/lib/llm/chat-provider';
+import { openaiChatClient } from '@/lib/llm/openai-chat';
 
 // CRITICAL GROUNDING CONSTRAINT: the narrative model receives ONLY the priced
 // line items (descriptions/quantities/units), the project summary and the
@@ -91,6 +93,8 @@ export type NarrativeResponseBlock = NarrativeTextBlock | NarrativeToolUseBlock;
 export interface NarrativeModelResponse {
   content: NarrativeResponseBlock[];
   usage: { input_tokens: number; output_tokens: number };
+  /** The model that actually answered — set by provider adapters. */
+  model?: string;
 }
 
 export type NarrativeMessageParam =
@@ -266,10 +270,8 @@ export class NarrativeDraftError extends Error {
   }
 }
 
-function defaultClient(): NarrativeClient {
-  if (!process.env.ANTHROPIC_API_KEY) {
-    throw new NarrativeDraftError('ANTHROPIC_API_KEY is not set');
-  }
+/** The Anthropic adapter (Sonnet tier). */
+function anthropicClient(): NarrativeClient {
   // Adapter maps the SDK's wider response type down to the blocks used here.
   const anthropic = new Anthropic();
   return {
@@ -292,10 +294,20 @@ function defaultClient(): NarrativeClient {
             input_tokens: response.usage.input_tokens,
             output_tokens: response.usage.output_tokens,
           },
+          model: response.model,
         };
       },
     },
   };
+}
+
+function defaultClient(): NarrativeClient {
+  // Provider switch (LLM_PROVIDER): the configured provider owns every
+  // request; the deterministic fallback below stays the failure path.
+  return selectChatClient({
+    anthropic: anthropicClient,
+    openai: () => openaiChatClient(tierModel('standard')),
+  });
 }
 
 const narrativeTool: NarrativeToolDefinition = {
@@ -311,7 +323,7 @@ export async function draftNarrative(
 ): Promise<NarrativeResult> {
   const client = opts.client ?? defaultClient();
   const recordRun = opts.recordRun ?? recordAgentRun;
-  const model = opts.model ?? SONNET_MODEL;
+  const model = opts.model ?? tierModel('standard');
   const runCtx: AgentRunContext = { step: 'draft_narrative', proposalId: opts.proposalId ?? null };
 
   const messages: NarrativeMessageParam[] = [
@@ -366,7 +378,10 @@ export async function draftNarrative(
     }
 
     const latencyMs = Date.now() - startedAt;
-    const costUsd = estimateMessageCostUsd(model, response.usage.input_tokens, response.usage.output_tokens);
+    // Audit the model that actually answered (rule 4) — it differs from the
+    // tier default whenever the provider adapter reports its own model.
+    const usedModel = response.model ?? model;
+    const costUsd = estimateMessageCostUsd(usedModel, response.usage.input_tokens, response.usage.output_tokens);
     totalCostUsd += costUsd ?? 0;
 
     const toolUse = response.content.find(
@@ -390,7 +405,7 @@ export async function draftNarrative(
 
     if (toolUse && parsed?.success && violations.length === 0) {
       await recordRun(runCtx, {
-        model,
+        model: usedModel,
         tokensIn: response.usage.input_tokens,
         tokensOut: response.usage.output_tokens,
         costUsd,
@@ -402,7 +417,7 @@ export async function draftNarrative(
 
     const canRetry = attempts < MAX_ATTEMPTS;
     await recordRun(runCtx, {
-      model,
+      model: usedModel,
       tokensIn: response.usage.input_tokens,
       tokensOut: response.usage.output_tokens,
       costUsd,

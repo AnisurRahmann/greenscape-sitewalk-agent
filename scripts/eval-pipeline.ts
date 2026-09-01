@@ -31,6 +31,9 @@ import { evaluateRules } from '../src/lib/guardrails/rules';
 import { priceProposal } from '../src/lib/pricing/engine';
 import type { MatchedItemInput } from '../src/lib/pricing/engine';
 import { extractScope } from '../src/lib/agent/extractScope';
+import { estimateMessageCostUsd, tierModel } from '../src/lib/agent/pricing-table';
+import { llmProvider } from '../src/lib/llm/chat-provider';
+import { openaiChatClient, type OpenAiChatResponse } from '../src/lib/llm/openai-chat';
 import { embedQuery } from '../src/lib/retrieval/embedQuery';
 import { matchCatalog } from '../src/lib/retrieval/matchCatalog';
 import {
@@ -109,30 +112,74 @@ const singleShotSchema = z.object({
   ),
 });
 
+const SINGLE_SHOT_SYSTEM =
+  'You are a hardscape estimator for Greenscape Pro. Given a site-walk transcript and the ' +
+  'price catalog, produce the priced proposal: pick catalog SKUs, decide quantities, and ' +
+  'compute each line_total as quantity times unit_price. Only use catalog SKUs.';
+
+function singleShotUserContent(
+  transcript: string,
+  catalog: Array<{ sku: string; name: string; category: string; unit: string; unit_price: number }>,
+): string {
+  const catalogText = catalog
+    .map((row) => `${row.sku} | ${row.name} | ${row.category} | per ${row.unit} | $${row.unit_price}`)
+    .join('\n');
+  return (
+    `<catalog>\n${catalogText}\n</catalog>\n\n<transcript>\n${transcript}\n</transcript>\n\n` +
+    'Produce the priced proposal.'
+  );
+}
+
+function parseSingleShot(input: unknown): OutputLine[] {
+  const parsed = input !== undefined ? singleShotSchema.safeParse(input) : null;
+  if (!parsed?.success) throw new Error('single-shot produced unparseable output');
+  return parsed.data.lines.map((line) => ({
+    sku: line.sku,
+    quantity: line.quantity,
+    lineTotal: line.line_total,
+    needsReview: false,
+  }));
+}
+
 async function runSingleShot(
   transcript: string,
   catalog: Array<{ sku: string; name: string; category: string; unit: string; unit_price: number }>,
 ): Promise<{ lines: OutputLine[]; costUsd: number }> {
-  const anthropic = new Anthropic();
-  const catalogText = catalog
-    .map((row) => `${row.sku} | ${row.name} | ${row.category} | per ${row.unit} | $${row.unit_price}`)
-    .join('\n');
+  // Variant A is "one strong-tier call with the whole catalog in context" —
+  // whichever provider LLM_PROVIDER selects. It must measure the same
+  // provider family the staged variants run on.
+  const model = tierModel('standard');
 
+  if (llmProvider() === 'openai') {
+    const response: OpenAiChatResponse = await openaiChatClient(model).messages.create({
+      model,
+      max_tokens: 4096,
+      system: SINGLE_SHOT_SYSTEM,
+      messages: [{ role: 'user', content: singleShotUserContent(transcript, catalog) }],
+      tools: [
+        {
+          name: 'submit_priced_proposal',
+          description: 'Submit the priced proposal lines.',
+          input_schema: z.toJSONSchema(singleShotSchema),
+        },
+      ],
+      tool_choice: { type: 'tool', name: 'submit_priced_proposal' },
+    });
+    const toolUse = response.content.find((block) => block.type === 'tool_use');
+    const input: unknown = toolUse && 'input' in toolUse ? toolUse.input : undefined;
+    return {
+      lines: parseSingleShot(input),
+      costUsd:
+        estimateMessageCostUsd(model, response.usage.input_tokens, response.usage.output_tokens) ?? 0,
+    };
+  }
+
+  const anthropic = new Anthropic();
   const response = await anthropic.messages.create({
-    model: 'claude-sonnet-4-5',
+    model,
     max_tokens: 4096,
-    system:
-      'You are a hardscape estimator for Greenscape Pro. Given a site-walk transcript and the ' +
-      'price catalog, produce the priced proposal: pick catalog SKUs, decide quantities, and ' +
-      'compute each line_total as quantity times unit_price. Only use catalog SKUs.',
-    messages: [
-      {
-        role: 'user',
-        content:
-          `<catalog>\n${catalogText}\n</catalog>\n\n<transcript>\n${transcript}\n</transcript>\n\n` +
-          'Produce the priced proposal.',
-      },
-    ],
+    system: SINGLE_SHOT_SYSTEM,
+    messages: [{ role: 'user', content: singleShotUserContent(transcript, catalog) }],
     tools: [
       {
         name: 'submit_priced_proposal',
@@ -143,23 +190,16 @@ async function runSingleShot(
     tool_choice: { type: 'tool', name: 'submit_priced_proposal' },
   });
 
-  const costUsd =
-    (response.usage.input_tokens / 1_000_000) * 3 + (response.usage.output_tokens / 1_000_000) * 15;
+  const costUsd = estimateMessageCostUsd(
+    response.model ?? model,
+    response.usage.input_tokens,
+    response.usage.output_tokens,
+  );
 
   const toolUse = response.content.find((block) => block.type === 'tool_use');
   const input: unknown = toolUse && 'input' in toolUse ? toolUse.input : undefined;
-  const parsed = input !== undefined ? singleShotSchema.safeParse(input) : null;
-  if (!parsed?.success) throw new Error('single-shot produced unparseable output');
 
-  return {
-    lines: parsed.data.lines.map((line) => ({
-      sku: line.sku,
-      quantity: line.quantity,
-      lineTotal: line.line_total,
-      needsReview: false,
-    })),
-    costUsd,
-  };
+  return { lines: parseSingleShot(input), costUsd: costUsd ?? 0 };
 }
 
 // ---------------------------------------------------------------------------
