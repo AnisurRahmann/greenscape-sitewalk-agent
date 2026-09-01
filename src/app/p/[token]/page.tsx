@@ -48,7 +48,7 @@ export default async function PublicProposalPage({
 
   const { data: lines } = await db
     .from('proposal_line_items')
-    .select('description, qty, unit, unit_price, discount_bps, line_total, needs_review, match_method')
+    .select('description, qty, unit, unit_price, discount_bps, line_total, needs_review, match_method, excluded')
     .eq('proposal_id', proposal.id)
     .order('sort_order');
 

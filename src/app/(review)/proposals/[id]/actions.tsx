@@ -52,6 +52,44 @@ export async function commitLineEdit(input: CommitLineEditInput): Promise<{ ok: 
   return { ok: true };
 }
 
+export interface ExcludeLineInput {
+  proposalId: string;
+  lineId: string;
+  reason: string;
+}
+
+/** Soft-deletes a reviewed line. A short reason is required; the line stays
+ *  visible in review (struck through) but never prices or renders to the
+ *  customer. */
+export async function excludeProposalLine(
+  input: ExcludeLineInput,
+): Promise<{ ok: boolean; error?: string }> {
+  const reason = input.reason.trim();
+  if (!reason) return { ok: false, error: 'A removal reason is required.' };
+  await requireSession();
+  const db = getSupabaseAdmin();
+
+  const { error: updateError } = await db
+    .from('proposal_line_items')
+    .update({ excluded: true, excluded_reason: reason })
+    .eq('id', input.lineId)
+    .eq('proposal_id', input.proposalId);
+  if (updateError) return { ok: false, error: updateError.message };
+
+  const { error: auditError } = await db.from('audit_log').insert({
+    actor: 'review-ui',
+    action: 'line_item.excluded',
+    entity_type: 'proposal_line_item',
+    entity_id: input.lineId,
+    before: { excluded: false },
+    after: { excluded: true, reason },
+  });
+  if (auditError) {
+    console.error('audit_log write failed for line exclusion:', auditError);
+  }
+  return { ok: true };
+}
+
 /** Human attestation that an unverified evidence span was checked by hand. */
 export async function verifyLineEvidence(
   lineId: string,

@@ -63,7 +63,12 @@ export async function repriceStoredProposal(
   const isOptionalAddOn = (description: string): boolean =>
     description.includes('(optional add-on)');
 
-  const mainInputs: MatchedItemInput[] = lines
+  // Soft-deleted lines were removed by a human: they never price and never
+  // feed a guardrail. Excluding everything prices to zero, which G4 blocks
+  // as 'no priced items' — an all-excluded proposal cannot be approved.
+  const activeLines = lines.filter((line) => !line.excluded);
+
+  const mainInputs: MatchedItemInput[] = activeLines
     .filter((line) => !isOptionalAddOn(line.description))
     .map((line) => {
       const catalog = line.catalog_item_id ? catalogById.get(line.catalog_item_id) : undefined;
@@ -98,7 +103,7 @@ export async function repriceStoredProposal(
   }));
   // Optional add-ons stay at their stored $0 and feed only G7 (nothing
   // leaked into the total) — the pipeline never priced them either.
-  for (const line of lines.filter((line) => isOptionalAddOn(line.description))) {
+  for (const line of activeLines.filter((line) => isOptionalAddOn(line.description))) {
     const catalog = line.catalog_item_id ? catalogById.get(line.catalog_item_id) : undefined;
     guardrailLines.push({
       sku: null,
@@ -140,17 +145,17 @@ export async function repriceStoredProposal(
 
   const results = evaluateRules({
     proposalId,
-    extraction: {
-      schemaValid: true,
-      retryCount: 0,
-      items: lines
-        .filter((line) => !isOptionalAddOn(line.description))
-        .map((line) => ({
-          rawPhrase: line.transcript_evidence ?? line.description,
-          committed: true,
-          evidenceVerified: line.evidence_verified,
-        })),
-    },
+      extraction: {
+        schemaValid: true,
+        retryCount: 0,
+        items: activeLines
+          .filter((line) => !isOptionalAddOn(line.description))
+          .map((line) => ({
+            rawPhrase: line.transcript_evidence ?? line.description,
+            committed: true,
+            evidenceVerified: line.evidence_verified,
+          })),
+      },
     proposal: {
       total: priced.total,
       marginPct: priced.marginPct,

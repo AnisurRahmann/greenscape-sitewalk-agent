@@ -122,17 +122,22 @@ export interface StoredLineLike {
   needs_review: boolean | null;
   line_total: number;
   match_method: string | null;
+  /** Soft-deleted in review — rendered only there, struck through. */
+  excluded?: boolean | null;
 }
 
 /**
  * Customer-facing split of stored lines, shared by the PDF renderer and the
  * /p/[token] page. Unmatched lines exist only for the reviewer — an unpriced
- * line can never reach a customer — so they are dropped before the split.
+ * line can never reach a customer — and excluded lines were removed by a
+ * human; both are dropped before the split.
  */
 export function splitCustomerLines<T extends StoredLineLike>(
   lines: T[],
 ): { priced: T[]; optionalAddOns: T[] } {
-  const visible = lines.filter((line) => line.match_method !== 'unmatched');
+  const visible = lines.filter(
+    (line) => line.match_method !== 'unmatched' && !line.excluded,
+  );
   return {
     priced: visible.filter((line) => !line.needs_review || line.line_total > 0),
     optionalAddOns: visible.filter((line) => line.needs_review && line.line_total === 0),

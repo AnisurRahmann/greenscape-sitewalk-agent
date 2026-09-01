@@ -90,6 +90,8 @@ export default async function ProposalReviewPage({
       transcriptEvidence: line.transcript_evidence,
       evidenceVerified: line.evidence_verified,
       needsReview: line.needs_review,
+      excluded: line.excluded,
+      excludedReason: line.excluded_reason,
       minQty: catalog?.min_qty ?? 0,
       materialsRatio: catalog?.materials_ratio ?? 0.45,
       isOptionalAddOn: line.description.includes('(optional add-on)'),

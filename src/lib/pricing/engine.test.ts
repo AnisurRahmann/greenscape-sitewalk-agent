@@ -338,7 +338,13 @@ describe('priceProposal — invariants (property test)', () => {
 });
 
 describe('splitCustomerLines', () => {
-  type Row = { description: string; needs_review: boolean; line_total: number; match_method: string | null };
+  type Row = {
+    description: string;
+    needs_review: boolean;
+    line_total: number;
+    match_method: string | null;
+    excluded: boolean;
+  };
 
   function row(overrides: Partial<Row> = {}): Row {
     return {
@@ -346,6 +352,7 @@ describe('splitCustomerLines', () => {
       needs_review: false,
       line_total: 8_400,
       match_method: 'hybrid',
+      excluded: false,
       ...overrides,
     };
   }
@@ -366,6 +373,16 @@ describe('splitCustomerLines', () => {
       row(),
     ]);
     expect(priced.map((line) => line.description)).toEqual(['paver section']);
+    expect(optionalAddOns).toHaveLength(0);
+  });
+
+  it('drops excluded (soft-deleted) rows from both buckets', () => {
+    const { priced, optionalAddOns } = splitCustomerLines([
+      row({ excluded: true }),
+      row({ description: 'ramada someday', needs_review: true, line_total: 0, excluded: true }),
+      row(),
+    ]);
+    expect(priced).toHaveLength(1);
     expect(optionalAddOns).toHaveLength(0);
   });
 

@@ -18,6 +18,9 @@ export interface ReviewLine {
   transcriptEvidence: string | null;
   evidenceVerified: boolean;
   needsReview: boolean;
+  /** Soft-deleted in review — struck through, never priced or rendered. */
+  excluded: boolean;
+  excludedReason: string | null;
   minQty: number;
   materialsRatio: number;
   /** Optional add-ons were matched but not committed: priced at $0. */

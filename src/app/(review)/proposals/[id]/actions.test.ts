@@ -155,4 +155,21 @@ describe('approveProposal — server-authoritative repricing', () => {
     expect(h.state.auditInserts).toHaveLength(0);
     expect(h.state.afterCallbacks).toHaveLength(0);
   });
+
+  it('blocks with no priced items when every line has been excluded', async () => {
+    // Soft-deleting every line prices the proposal to zero — G4 must block
+    // on 'no priced items', not divide by zero.
+    h.state.lines = h.state.lines.map((line) => ({ ...line, excluded: true }));
+    const outcome = await approveProposal({ proposalId: PROPOSAL_ID }).then(
+      () => {
+        throw new Error('expected the approval to be blocked');
+      },
+      (err: unknown) => err,
+    );
+    expect(outcome).toBeInstanceOf(ApprovalBlockedError);
+    expect((outcome as ApprovalBlockedError).blockedBy).toEqual(['G4_margin_floor']);
+
+    expect(h.state.proposalUpdates).toHaveLength(0);
+    expect(h.state.afterCallbacks).toHaveLength(0);
+  });
 });

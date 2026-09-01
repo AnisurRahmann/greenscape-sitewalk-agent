@@ -325,6 +325,8 @@ export type Database = {
           transcript_evidence: string | null;
           evidence_verified: boolean;
           needs_review: boolean;
+          excluded: boolean;
+          excluded_reason: string | null;
           sort_order: number | null;
         };
         Insert: {
@@ -345,6 +347,8 @@ export type Database = {
           transcript_evidence?: string | null;
           evidence_verified?: boolean;
           needs_review?: boolean;
+          excluded?: boolean;
+          excluded_reason?: string | null;
           sort_order?: number | null;
         };
         Update: {
@@ -365,6 +369,8 @@ export type Database = {
           transcript_evidence?: string | null;
           evidence_verified?: boolean;
           needs_review?: boolean;
+          excluded?: boolean;
+          excluded_reason?: string | null;
           sort_order?: number | null;
         };
         Relationships: [

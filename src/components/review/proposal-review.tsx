@@ -5,6 +5,7 @@ import { useMemo, useState, useTransition } from 'react';
 import {
   approveProposal,
   commitLineEdit,
+  excludeProposalLine,
   generateProposalPdf,
   rejectProposal,
   verifyLineEvidence,
@@ -50,15 +51,29 @@ export function ProposalReview(props: ProposalReviewProps) {
 
   const mainLines = lines.filter((line) => !line.isOptionalAddOn);
   const optionalLines = lines.filter((line) => line.isOptionalAddOn);
+  // Soft-deleted lines render struck-through but never price: the engine and
+  // the guardrails see only active lines. (Excluding everything leaves zero
+  // priced items — G4 then blocks with 'no priced items'.)
+  const activeMain = mainLines.filter((line) => !line.excluded);
+  const activeOptional = optionalLines.filter((line) => !line.excluded);
 
   // Live repricing through the REAL engine — identical math to the pipeline.
   // Stored unit prices are catalog list prices, so the tier applies exactly
   // once no matter how many times lines are re-priced.
   const live = useMemo(() => {
-    const priced = priceProposal(mainLines.map(toEngineInput));
-    // Engine lines keep input order; merge computed values onto the display rows.
-    const computed = mainLines.map((line, index) => {
-      const engineLine = priced.lineItems[index];
+    const priced = priceProposal(activeMain.map(toEngineInput));
+    // Engine lines keep input order; merge computed values onto the display
+    // rows. Excluded rows are skipped by the engine and keep stored values.
+    let pricedIndex = 0;
+    const computed = mainLines.map((line) => {
+      if (line.excluded) {
+        return {
+          quantity: line.quantity,
+          lineTotal: line.lineTotal,
+          discountBps: line.discountBps,
+        };
+      }
+      const engineLine = priced.lineItems[pricedIndex++];
       return engineLine
         ? {
             quantity: engineLine.quantity,
@@ -83,7 +98,7 @@ export function ProposalReview(props: ProposalReviewProps) {
       matchMethod: line.matchMethod,
       committed: true,
     }));
-    for (const optional of optionalLines) {
+    for (const optional of activeOptional) {
       guardrailLines.push({
         sku: optional.sku,
         catalogItemId: optional.catalogItemId,
@@ -102,7 +117,7 @@ export function ProposalReview(props: ProposalReviewProps) {
       extraction: {
         schemaValid: true,
         retryCount: 0,
-        items: mainLines.map((line) => ({
+        items: activeMain.map((line) => ({
           rawPhrase: line.transcriptEvidence ?? line.description,
           committed: true,
           evidenceVerified: line.evidenceVerified,
@@ -124,7 +139,7 @@ export function ProposalReview(props: ProposalReviewProps) {
     );
 
     return { priced, computed, results, blocking, blockedLineIndexes };
-  }, [mainLines, optionalLines, props.proposalId, props.validCatalogIds, props.generationCostUsd, props.elapsedMs]);
+  }, [mainLines, activeMain, activeOptional, props.proposalId, props.validCatalogIds, props.generationCostUsd, props.elapsedMs]);
 
   const setLine = (lineId: string, patch: Partial<ReviewLine>) => {
     setLines((prev) => prev.map((line) => (line.id === lineId ? { ...line, ...patch } : line)));
@@ -134,6 +149,22 @@ export function ProposalReview(props: ProposalReviewProps) {
         void verifyLineEvidence(lineId, props.proposalId);
       });
     }
+  };
+
+  const onExclude = (lineId: string, reason: string) => {
+    startTransition(() => {
+      void excludeProposalLine({ proposalId: props.proposalId, lineId, reason }).then((outcome) => {
+        if (!outcome.ok) {
+          console.error('line exclusion failed:', outcome.error);
+          return;
+        }
+        setLines((prev) =>
+          prev.map((line) =>
+            line.id === lineId ? { ...line, excluded: true, excludedReason: reason } : line,
+          ),
+        );
+      });
+    });
   };
 
   const onEditCommit = (lineId: string, field: 'quantity' | 'unit_price', before: number, after: number) => {
@@ -220,6 +251,7 @@ export function ProposalReview(props: ProposalReviewProps) {
             lines={mainLines}
             onChange={setLine}
             onEditCommit={onEditCommit}
+            onExclude={onExclude}
             blockedLineIndexes={live.blockedLineIndexes}
             computed={live.computed}
           />

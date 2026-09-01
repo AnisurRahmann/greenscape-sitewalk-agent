@@ -42,7 +42,7 @@ export async function ensureProposalPdf(proposalId: string): Promise<EnsurePdfRe
   const { data: lines, error: linesError } = await db
     .from('proposal_line_items')
     .select(
-      'description, qty, unit, unit_price, discount_bps, line_total, needs_review, sort_order, match_method',
+      'description, qty, unit, unit_price, discount_bps, line_total, needs_review, sort_order, match_method, excluded',
     )
     .eq('proposal_id', proposalId)
     .order('sort_order');
