@@ -1,5 +1,7 @@
 'use client';
 
+import type { ReactNode } from 'react';
+
 import {
   MARGIN_FLOOR_PCT,
   ORCHESTRATION_LIMIT_MS,
@@ -76,15 +78,36 @@ const RULE_EXPLANATIONS: Record<string, string> = {
   G9_wall_clock: `The whole pipeline finished within the ${ORCHESTRATION_LIMIT_MS / 1000}s time limit.`,
 };
 
+// CSS-only tooltip: native title tooltips depend on OS/browser tooltip
+// behavior (delayed, mouse-only, disabled in some setups), so guardrail
+// explanations render as instant hover/focus bubbles instead. Clicking also
+// focuses the trigger, which keeps the bubble open.
+function InfoTip({ children, tip }: { children: ReactNode; tip: string }) {
+  return (
+    <span
+      className="group relative inline-flex cursor-help items-center outline-none"
+      tabIndex={0}
+      aria-label={tip}
+    >
+      {children}
+      <span
+        role="tooltip"
+        className="pointer-events-none absolute left-0 top-full z-20 mt-1.5 w-60 rounded-md bg-zinc-900 px-2.5 py-2 text-[11px] font-normal leading-snug text-zinc-50 opacity-0 shadow-lg transition-opacity duration-100 group-hover:opacity-100 group-focus:opacity-100"
+      >
+        {tip}
+      </span>
+    </span>
+  );
+}
+
 function RuleRow({ result }: { result: GuardrailResult }) {
   return (
-    <li
-      className="flex items-start justify-between gap-2 py-0.5"
-      title={RULE_EXPLANATIONS[result.rule] ?? 'Guardrail check'}
-    >
-      <span className="cursor-help text-xs underline decoration-dotted underline-offset-2">
-        {result.rule}
-      </span>
+    <li className="flex items-start justify-between gap-2 py-0.5">
+      <InfoTip tip={RULE_EXPLANATIONS[result.rule] ?? 'Guardrail check'}>
+        <span className="text-xs underline decoration-dotted underline-offset-2">
+          {result.rule}
+        </span>
+      </InfoTip>
       <span className={`text-xs font-medium ${result.passed ? 'text-emerald-700' : result.severity === 'block' ? 'text-red-600' : 'text-amber-600'}`}>
         {result.passed ? 'ok' : result.severity}
       </span>
@@ -134,12 +157,9 @@ export function RightRail({
         <h3 className="mb-1 text-xs font-semibold uppercase text-muted-foreground">Guardrails</h3>
         {blocks.length > 0 && (
           <div className="mb-2 rounded-lg border border-red-200 bg-red-50 p-2">
-            <p
-              className="text-xs font-semibold text-red-700"
-              title="At least one hard guardrail failed. Approval stays disabled until the proposal is fixed and re-reviewed."
-            >
-              Blocking — approval disabled
-            </p>
+            <InfoTip tip="At least one hard guardrail failed. Approval stays disabled until the proposal is fixed and re-reviewed.">
+              <span className="text-xs font-semibold text-red-700">Blocking — approval disabled</span>
+            </InfoTip>
             <ul className="mt-1 divide-y divide-red-100">
               {blocks.map((result) => (
                 <RuleRow key={result.rule} result={result} />
@@ -149,12 +169,9 @@ export function RightRail({
         )}
         {warns.length > 0 && (
           <div className="rounded-lg border border-amber-200 bg-amber-50 p-2">
-            <p
-              className="text-xs font-semibold text-amber-700"
-              title="Soft flags that never block approval. Hover a rule below to see what it checks."
-            >
-              Warnings — advisory only
-            </p>
+            <InfoTip tip="Soft flags that never block approval. Hover a rule below to see what it checks.">
+              <span className="text-xs font-semibold text-amber-700">Warnings — advisory only</span>
+            </InfoTip>
             <ul className="mt-1 divide-y divide-amber-100">
               {warns.map((result) => (
                 <RuleRow key={result.rule} result={result} />
