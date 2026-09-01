@@ -4,8 +4,6 @@ import type { ReactNode } from 'react';
 
 import {
   MARGIN_FLOOR_PCT,
-  ORCHESTRATION_LIMIT_MS,
-  PROPOSAL_COST_CEILING_USD,
   TOTAL_MAX_USD,
   TOTAL_MIN_USD,
   type GuardrailResult,
@@ -59,23 +57,23 @@ function MarginGauge({ marginPct }: { marginPct: number }) {
   );
 }
 
-// One-liners for admins hovering a rule in the guardrails panel. Kept as UI
-// copy here so the wording stays reviewable without touching rules.ts.
+// Client-facing one-liners: each check explained in plain words — what it
+// protects the customer from, no internal jargon.
 const RULE_EXPLANATIONS: Record<string, string> = {
   G1_schema_valid:
-    'The extracted quote data passed schema validation (auto-retried up to 2 times on failure).',
+    'Your quote was checked for completeness before pricing — nothing garbled, missing, or out of place.',
   G2_evidence_grounded:
-    'Every priced line item is backed by something said in the site-walk transcript.',
+    'Every line in this quote comes from something you actually said during the site walk — nothing was added on its own.',
   G3_catalog_grounded:
-    'All line items reference real catalog products and prices. Unpriced (unmatched) lines block approval until you set a manual price or remove them.',
-  G4_margin_floor: `Gross margin is at or above the ${MARGIN_FLOOR_PCT}% floor. Below it the proposal cannot be approved.`,
-  G5_total_bounds: `Total sits inside the client's stated project range (${usd(TOTAL_MIN_USD)}–${usd(TOTAL_MAX_USD)}). Out of range is expected sometimes — advisory only, but worth a quick look at scope.`,
+    'Every item uses a real product from our current price list. Anything we could not price automatically is held for a person to price by hand — an unpriced line never reaches you.',
+  G4_margin_floor: `A fairness check on the numbers, so the quote is reliable in both directions — no pricing mistakes slip through.`,
+  G5_total_bounds: `The total lands within the project range discussed (${usd(TOTAL_MIN_USD)}–${usd(TOTAL_MAX_USD)}). Anything outside is simply double-checked by a person before it goes to you.`,
   G6_quantity_sanity:
-    'Quantities are compared against historical percentiles to catch typos (e.g. a 40x quantity error).',
+    'Amounts are compared against similar past projects to catch typos — like a 40 typed instead of a 4 — before the quote reaches you.',
   G7_uncommitted_items:
-    'Scope the customer asked about but never committed to stays optional and unpriced, never silently added.',
-  G8_cost_ceiling: `The agent run's API cost stayed under the ${usd(PROPOSAL_COST_CEILING_USD)} per-proposal ceiling.`,
-  G9_wall_clock: `The whole pipeline finished within the ${ORCHESTRATION_LIMIT_MS / 1000}s time limit.`,
+    'Ideas you asked about but have not committed to are listed as optional add-ons. Nothing is added to your total without your OK.',
+  G8_cost_ceiling: `This quote was produced within a strict automated budget, so no extra processing costs are ever passed on to you.`,
+  G9_wall_clock: `Your quote is generated quickly — if the system is ever too slow, a person steps in instead of keeping you waiting.`,
 };
 
 // CSS-only tooltip: native title tooltips depend on OS/browser tooltip
@@ -157,7 +155,7 @@ export function RightRail({
         <h3 className="mb-1 text-xs font-semibold uppercase text-muted-foreground">Guardrails</h3>
         {blocks.length > 0 && (
           <div className="mb-2 rounded-lg border border-red-200 bg-red-50 p-2">
-            <InfoTip tip="At least one hard guardrail failed. Approval stays disabled until the proposal is fixed and re-reviewed.">
+            <InfoTip tip="A safety check found something that needs a real person to look at. This quote cannot be sent until it is reviewed and fixed.">
               <span className="text-xs font-semibold text-red-700">Blocking — approval disabled</span>
             </InfoTip>
             <ul className="mt-1 divide-y divide-red-100">
@@ -169,7 +167,7 @@ export function RightRail({
         )}
         {warns.length > 0 && (
           <div className="rounded-lg border border-amber-200 bg-amber-50 p-2">
-            <InfoTip tip="Soft flags that never block approval. Hover a rule below to see what it checks.">
+            <InfoTip tip="Friendly heads-ups that never stop your quote. Hover a check below to see what it means in plain words.">
               <span className="text-xs font-semibold text-amber-700">Warnings — advisory only</span>
             </InfoTip>
             <ul className="mt-1 divide-y divide-amber-100">
