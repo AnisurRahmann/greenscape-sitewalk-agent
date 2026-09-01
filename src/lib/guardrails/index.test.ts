@@ -99,25 +99,41 @@ describe('G3 catalog_grounded', () => {
     expect(result.passed).toBe(false);
   });
 
-  it('warns on unmatched items and forces needs_review instead of blocking', () => {
-    const result = g3CatalogGrounded([line({ catalogItemId: null, sku: null })], ids);
-    expect(result.severity).toBe('warn');
+  it('blocks on unmatched (unpriced) lines until a human prices them', () => {
+    const result = g3CatalogGrounded([line({ catalogItemId: null, matchMethod: 'unmatched' })], ids);
+    expect(result.severity).toBe('block');
     expect(result.passed).toBe(false);
     expect(result.detail.unmatched_count).toBe(1);
+    expect(result.detail.reason).toBe('unpriced_lines_present');
     expect(result.detail.forces_needs_review).toBe(true);
+  });
+
+  it('passes a line the reviewer priced manually, even without a catalog item', () => {
+    const result = g3CatalogGrounded([line({ catalogItemId: null, matchMethod: 'manual' })], ids);
+    expect(result.passed).toBe(true);
   });
 });
 
 describe('G4 margin_floor', () => {
   it('passes at and above the 30% floor', () => {
-    expect(g4MarginFloor(30).passed).toBe(true);
-    expect(g4MarginFloor(38.5).passed).toBe(true);
+    expect(g4MarginFloor(30, 45_000).passed).toBe(true);
+    expect(g4MarginFloor(38.5, 45_000).passed).toBe(true);
   });
 
   it('blocks below the floor', () => {
-    const result = g4MarginFloor(29.9);
+    const result = g4MarginFloor(29.9, 45_000);
     expect(result.passed).toBe(false);
     expect(result.detail.margin_pct).toBe(29.9);
+  });
+
+  it('blocks a zero total as no_priced_items instead of dividing by zero', () => {
+    for (const marginPct of [0, NaN]) {
+      const result = g4MarginFloor(marginPct, 0);
+      expect(result.severity).toBe('block');
+      expect(result.passed).toBe(false);
+      expect(result.detail.reason).toBe('no_priced_items');
+      expect(result.detail).not.toHaveProperty('margin_pct');
+    }
   });
 });
 
@@ -246,18 +262,34 @@ describe('runGuardrails', () => {
   });
 
   it('does not gate on warns alone', async () => {
+    // Total 7,999 trips only the advisory G5 total_bounds warn.
     const ctx = context({
       proposal: {
-        total: 45_000,
+        total: 7_999,
         marginPct: 38,
-        lineItems: [line(), line({ catalogItemId: null, sku: null, lineTotal: 0, description: 'mystery' })],
+        lineItems: [line()],
       },
     });
     const verdict = await runGuardrails(ctx);
 
     expect(verdict.status).toBe('passed');
     expect(verdict.proposalStatus).toBeNull();
-    expect(verdict.warns.map((r) => r.rule)).toContain('G3_catalog_grounded');
+    expect(verdict.warns.map((r) => r.rule)).toContain('G5_total_bounds');
+  });
+
+  it('routes an unmatched line to needs_review as a G3 block', async () => {
+    const ctx = context({
+      proposal: {
+        total: 45_000,
+        marginPct: 38,
+        lineItems: [line(), line({ catalogItemId: null, matchMethod: 'unmatched', lineTotal: 0 })],
+      },
+    });
+    const verdict = await runGuardrails(ctx);
+
+    expect(verdict.status).toBe('needs_review');
+    expect(verdict.proposalStatus).toBe('needs_review');
+    expect(verdict.blocking.map((r) => r.rule)).toContain('G3_catalog_grounded');
   });
 
   it('aborts when the cost ceiling is exceeded', async () => {

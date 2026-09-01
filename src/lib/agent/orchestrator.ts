@@ -401,6 +401,7 @@ export async function runSitewalkPipeline(siteWalkId: string): Promise<PipelineR
         quantity: line.quantity,
         lineTotal: line.lineTotal,
         matchConfidence: line.matchConfidence,
+        matchMethod: line.matchMethod,
         committed: optionalLines.includes(line) ? false : true,
       }));
 

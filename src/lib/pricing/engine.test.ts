@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { priceProposal, type MatchedItemInput } from './engine';
+import { priceProposal, splitCustomerLines, type MatchedItemInput } from './engine';
 import { toCents } from './money';
 
 function baseItem(overrides: Partial<MatchedItemInput> = {}): MatchedItemInput {
@@ -334,5 +334,46 @@ describe('priceProposal — invariants (property test)', () => {
       }
       expect(Number.isFinite(proposal.marginPct)).toBe(true);
     }
+  });
+});
+
+describe('splitCustomerLines', () => {
+  type Row = { description: string; needs_review: boolean; line_total: number; match_method: string | null };
+
+  function row(overrides: Partial<Row> = {}): Row {
+    return {
+      description: 'paver section',
+      needs_review: false,
+      line_total: 8_400,
+      match_method: 'hybrid',
+      ...overrides,
+    };
+  }
+
+  it('splits stored rows into priced lines and $0 optional add-ons', () => {
+    const { priced, optionalAddOns } = splitCustomerLines([
+      row(),
+      row({ description: 'ramada someday', needs_review: true, line_total: 0 }),
+    ]);
+    expect(priced.map((line) => line.description)).toEqual(['paver section']);
+    expect(optionalAddOns.map((line) => line.description)).toEqual(['ramada someday']);
+  });
+
+  it('drops unmatched lines from both buckets — they are reviewer-only', () => {
+    const { priced, optionalAddOns } = splitCustomerLines([
+      row({ match_method: 'unmatched', needs_review: true, line_total: 0 }),
+      row({ match_method: 'unmatched', line_total: 1_200 }),
+      row(),
+    ]);
+    expect(priced.map((line) => line.description)).toEqual(['paver section']);
+    expect(optionalAddOns).toHaveLength(0);
+  });
+
+  it('keeps manual lines the reviewer priced, with or without a catalog match', () => {
+    const { priced } = splitCustomerLines([
+      row({ match_method: 'manual' }),
+      row({ description: 'custom steel edging', match_method: 'manual' }),
+    ]);
+    expect(priced).toHaveLength(2);
   });
 });

@@ -65,7 +65,7 @@ const RULE_EXPLANATIONS: Record<string, string> = {
   G2_evidence_grounded:
     'Every priced line item is backed by something said in the site-walk transcript.',
   G3_catalog_grounded:
-    'All line items reference real catalog products and prices — nothing was invented.',
+    'All line items reference real catalog products and prices. Unpriced (unmatched) lines block approval until you set a manual price or remove them.',
   G4_margin_floor: `Gross margin is at or above the ${MARGIN_FLOOR_PCT}% floor. Below it the proposal cannot be approved.`,
   G5_total_bounds: `Total sits inside the client's stated project range (${usd(TOTAL_MIN_USD)}–${usd(TOTAL_MAX_USD)}). Out of range is expected sometimes — advisory only, but worth a quick look at scope.`,
   G6_quantity_sanity:

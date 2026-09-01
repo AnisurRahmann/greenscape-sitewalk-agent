@@ -51,6 +51,8 @@ export interface GuardrailLineItem {
   quantity: number;
   lineTotal: number;
   matchConfidence?: number | null;
+  /** How the line landed: 'hybrid'|'vector'|'lexical'|'manual'|'unmatched'. */
+  matchMethod?: string | null;
   /** False only when the customer merely asked about this; default true. */
   committed?: boolean;
 }
@@ -123,8 +125,10 @@ export function g2EvidenceGrounded(items: GuardrailExtractionItem[]): GuardrailR
 }
 
 // ---------------------------------------------------------------------------
-// G3 catalog_grounded — no dangling catalog references (block); unmatched
-// items are a warn that forces needs_review, never a silent drop.
+// G3 catalog_grounded — no dangling catalog references, and no unpriced line
+// leaves the review loop: an unmatched (match_method='unmatched') line has no
+// price behind it, so it blocks until the reviewer either sets a manual price
+// (match_method becomes 'manual') or removes the line.
 // ---------------------------------------------------------------------------
 
 export function g3CatalogGrounded(
@@ -151,24 +155,28 @@ export function g3CatalogGrounded(
     };
   }
 
+  // match_method is authoritative; callers that predate it fall back to the
+  // catalogItemId proxy so an unpriced line can never slip through unset.
   const unmatched = lineItems
     .map((line, index) => ({ line, index }))
-    .filter(({ line }) => line.catalogItemId === null);
+    .filter(({ line }) =>
+      line.matchMethod != null ? line.matchMethod === 'unmatched' : line.catalogItemId === null,
+    );
 
   return {
     rule: 'G3_catalog_grounded',
-    severity: 'warn',
+    severity: 'block',
     passed: unmatched.length === 0,
     detail: {
-      reason: unmatched.length > 0 ? 'unmatched_items_present' : 'all_items_matched',
+      reason: unmatched.length > 0 ? 'unpriced_lines_present' : 'all_items_matched',
       unmatched_count: unmatched.length,
       unmatched: unmatched.map(({ index, line }) => ({
         line_index: index,
         sku: line.sku,
         description: line.description,
       })),
-      // Unmatched lines never silently vanish: the verdict forces
-      // needs_review so a human prices them before anything is sent.
+      // Blocking routes the proposal to needs_review so a human prices these
+      // lines before anything is approved — never a silent drop.
       forces_needs_review: unmatched.length > 0,
     },
   };
@@ -180,7 +188,18 @@ export function g3CatalogGrounded(
 
 export const MARGIN_FLOOR_PCT = 30;
 
-export function g4MarginFloor(marginPct: number): GuardrailResult {
+export function g4MarginFloor(marginPct: number, total: number): GuardrailResult {
+  // A zero total means nothing was priced: the ratio is undefined and must
+  // never reach detail as NaN (jsonb-unsafe). Block — there is no approved
+  // proposal without priced lines.
+  if (total === 0 || !Number.isFinite(marginPct)) {
+    return {
+      rule: 'G4_margin_floor',
+      severity: 'block',
+      passed: false,
+      detail: { reason: 'no_priced_items', floor_pct: MARGIN_FLOOR_PCT },
+    };
+  }
   return {
     rule: 'G4_margin_floor',
     severity: 'block',
@@ -365,7 +384,7 @@ export function evaluateRules(context: GuardrailContext): GuardrailResult[] {
     g1SchemaValid(context.extraction),
     g2EvidenceGrounded(context.extraction.items),
     g3CatalogGrounded(context.proposal.lineItems, context.validCatalogIds),
-    g4MarginFloor(context.proposal.marginPct),
+    g4MarginFloor(context.proposal.marginPct, context.proposal.total),
     g5TotalBounds(context.proposal.total),
     g6QuantitySanity(context.proposal.lineItems),
     g7UncommittedItems(context.proposal.lineItems),

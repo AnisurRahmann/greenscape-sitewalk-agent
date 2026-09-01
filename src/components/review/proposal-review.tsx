@@ -80,6 +80,7 @@ export function ProposalReview(props: ProposalReviewProps) {
       quantity: line.quantity,
       lineTotal: line.lineTotal,
       matchConfidence: line.matchConfidence,
+      matchMethod: line.matchMethod,
       committed: true,
     }));
     for (const optional of optionalLines) {
@@ -91,6 +92,7 @@ export function ProposalReview(props: ProposalReviewProps) {
         quantity: optional.quantity,
         lineTotal: optional.lineTotal,
         matchConfidence: optional.matchConfidence,
+        matchMethod: optional.matchMethod,
         committed: false,
       });
     }

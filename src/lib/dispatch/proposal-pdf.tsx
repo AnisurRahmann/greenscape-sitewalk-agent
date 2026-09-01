@@ -2,7 +2,7 @@ import { renderToBuffer } from '@react-pdf/renderer';
 
 import { narrativeSchema } from '@/lib/agent/draftNarrative';
 import { getSupabaseAdmin } from '@/lib/db/client';
-import { effectiveUnitPrice } from '@/lib/pricing/engine';
+import { effectiveUnitPrice, splitCustomerLines } from '@/lib/pricing/engine';
 import { ProposalPdfDocument } from '@/lib/pdf/proposal';
 
 export interface EnsurePdfResult {
@@ -41,19 +41,19 @@ export async function ensureProposalPdf(proposalId: string): Promise<EnsurePdfRe
 
   const { data: lines, error: linesError } = await db
     .from('proposal_line_items')
-    .select('description, qty, unit, unit_price, discount_bps, line_total, needs_review, sort_order')
+    .select(
+      'description, qty, unit, unit_price, discount_bps, line_total, needs_review, sort_order, match_method',
+    )
     .eq('proposal_id', proposalId)
     .order('sort_order');
   if (linesError) throw new Error(linesError.message);
 
-  const pricedLines = (lines ?? []).filter((line) => !line.needs_review || line.line_total > 0);
-  const optionalAddOns = (lines ?? [])
-    .filter((line) => line.needs_review && line.line_total === 0)
-    .map((line) => ({
-      description: line.description.replace(/\s*\(optional add-on\)\s*/i, ' ').trim(),
-      quantity: line.qty,
-      unit: line.unit,
-    }));
+  const { priced: pricedLines, optionalAddOns: splitAddOns } = splitCustomerLines(lines ?? []);
+  const optionalAddOns = splitAddOns.map((line) => ({
+    description: line.description.replace(/\s*\(optional add-on\)\s*/i, ' ').trim(),
+    quantity: line.qty,
+    unit: line.unit,
+  }));
 
   const narrative = proposal.narrative
     ? narrativeSchema.parse(JSON.parse(proposal.narrative))
