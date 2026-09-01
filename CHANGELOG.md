@@ -1,6 +1,12 @@
 # Changelog
 
-## v0.14.0 — 2026-08-31
+## v0.15.0 — 2026-09-01
+- Added: shared-password login gate for demo deployment (DEMO_PASSWORD + SESSION_SECRET env vars required; /p/[token] and /api/health stay public)
+- Added: app launcher UI replacing the template landing page
+- Changed: server-authoritative approval -- client-sent totals are ignored, proposal is repriced and re-guardrailed server-side, blocking rules throw ApprovalBlockedError
+- Changed: pricing model stores catalog list price in unit_price with volume tier discount recorded in new discount_bps column (migration 0008)
+- Fixed: tier application now idempotent across review repricing; eval variant C exercises the production matcher and threshold
+ — 2026-08-31
 - Added: /api/health liveness + database probe (503 when the DB is unreachable)
 - Added: demo seed script (npm run seed:demo) — one approved proposal and one needs_review proposal with two G6-blocked lines, idempotent, environment-agnostic
 - Added: client-bundle secret-leak gate (npm run verify:client) — scans served files for server-only env names and real secret values

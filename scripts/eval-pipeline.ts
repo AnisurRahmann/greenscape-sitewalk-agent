@@ -32,6 +32,7 @@ import { priceProposal } from '../src/lib/pricing/engine';
 import type { MatchedItemInput } from '../src/lib/pricing/engine';
 import { extractScope } from '../src/lib/agent/extractScope';
 import { embedQuery } from '../src/lib/retrieval/embedQuery';
+import { matchCatalog } from '../src/lib/retrieval/matchCatalog';
 import {
   falseFlagRate,
   hallucinatedLineRate,
@@ -193,6 +194,7 @@ async function runStaged(
       unit_price: number;
       unit_cost: number;
       min_qty: number;
+      matchMethod: string;
     } | null = null;
 
     if (variant === 'B') {
@@ -211,27 +213,29 @@ async function runStaged(
           unit_price: top.unit_price,
           unit_cost: top.unit_cost,
           min_qty: top.min_qty,
+          matchMethod: 'vector',
         };
       }
     } else {
-      const { data, error } = await supabase.rpc('match_catalog_fused', {
-        p_query_embedding: embedding,
-        p_raw_query: item.normalized_query,
-        p_match_count: 1,
-        p_rrf_k: 60,
-        p_strategy_depth: 10,
+      // Production matcher with production settings: matchCatalog runs the
+      // fused RPC with the shipped RRF k / strategy depth and applies the
+      // 0.55 MATCH_CONFIDENCE_THRESHOLD, labelling the winning strategy —
+      // anything hand-rolled here would measure a different matcher than
+      // the one that ships.
+      const [candidate] = await matchCatalog(item.normalized_query, {
+        queryEmbedding: embedding,
+        topK: 1,
       });
-      if (error) throw new Error(`fused rpc failed: ${error.message}`);
-      const top = (data ?? [])[0];
-      if (top && top.match_method !== 'unmatched') {
+      if (candidate && candidate.matchMethod !== 'unmatched') {
         matched = {
-          id: top.id,
-          sku: top.sku,
-          category: top.category,
-          unit: top.unit,
-          unit_price: top.unit_price,
-          unit_cost: top.unit_cost,
-          min_qty: top.min_qty,
+          id: candidate.catalogItem.id,
+          sku: candidate.catalogItem.sku,
+          category: candidate.catalogItem.category,
+          unit: candidate.catalogItem.unit,
+          unit_price: candidate.catalogItem.unit_price,
+          unit_cost: candidate.catalogItem.unit_cost,
+          min_qty: candidate.catalogItem.min_qty,
+          matchMethod: candidate.matchMethod,
         };
       }
     }
@@ -248,7 +252,7 @@ async function runStaged(
             unitPrice: matched.unit_price,
             unitCost: matched.unit_cost,
             minQty: matched.min_qty,
-            matchMethod: variant === 'C' ? 'hybrid' : 'vector',
+            matchMethod: matched.matchMethod,
             transcriptEvidence: item.evidence,
             evidenceVerified: item.evidence_verified,
           }

@@ -315,6 +315,7 @@ export type Database = {
           qty: number;
           unit: string;
           unit_price: number;
+          discount_bps: number;
           unit_cost: number;
           line_total: number;
           match_method: string | null;
@@ -332,6 +333,7 @@ export type Database = {
           qty: number;
           unit: string;
           unit_price: number;
+          discount_bps?: number;
           unit_cost: number;
           line_total: number;
           match_method?: string | null;
@@ -349,6 +351,7 @@ export type Database = {
           qty?: number;
           unit?: string;
           unit_price?: number;
+          discount_bps?: number;
           unit_cost?: number;
           line_total?: number;
           match_method?: string | null;

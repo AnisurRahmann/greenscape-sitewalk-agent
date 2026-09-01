@@ -2,6 +2,7 @@
 
 import { after } from 'next/server';
 
+import { requireSession } from '@/lib/auth/require-session';
 import { runSitewalkPipeline } from '@/lib/agent/orchestrator';
 import { getSupabaseAdmin } from '@/lib/db/client';
 import {
@@ -27,6 +28,7 @@ const AUDIO_EXTENSIONS = new Set(['webm', 'mp4', 'm4a', 'wav', 'mp3', 'ogg']);
 export async function createSignedSitewalkUpload(
   fileExtension: string,
 ): Promise<SignedSitewalkUpload> {
+  await requireSession();
   const ext = fileExtension.toLowerCase().replace(/^\./, '');
   if (!AUDIO_EXTENSIONS.has(ext)) {
     return { ok: false, error: `unsupported audio extension: ${ext}` };
@@ -47,6 +49,7 @@ export async function createSignedSitewalkUpload(
 export async function submitSitewalk(
   input: SubmitSitewalkInput,
 ): Promise<SubmitSitewalkResult> {
+  await requireSession();
   const parsed = submitSitewalkSchema.safeParse(input);
   if (!parsed.success) {
     return { ok: false, error: parsed.error.issues[0]?.message ?? 'invalid input' };
