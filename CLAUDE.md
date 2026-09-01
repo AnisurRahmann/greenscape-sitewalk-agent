@@ -30,6 +30,8 @@ proposal. Client: Greenscape Pro, a $4.2M hardscape design-build company in Phoe
 Conventional commits. One logical change per commit. Never squash phases together.
 
 ## Model routing
-- Haiku tier: classification, routing, cheap validation passes.
-- Sonnet tier: scope extraction, proposal narrative.
-- Never Opus. Nothing here needs it and the per-proposal cost target is under $0.15.
+- Chat provider is a switch, not a hardcode: `LLM_PROVIDER=anthropic` (default) uses
+  the Haiku tier for classification and the Sonnet tier for scope extraction and
+  proposal narrative; `LLM_PROVIDER=openai` uses gpt-4o-mini / gpt-4o for the same
+  tiers. Either way: cheap tier for classification, strong tier for extraction.
+- Never Opus-class models. Nothing here needs it and the per-proposal cost target is under $0.15.

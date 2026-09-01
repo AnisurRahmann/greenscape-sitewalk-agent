@@ -3,7 +3,9 @@ import { z } from 'zod';
 
 import { recordAgentRun, type AgentRunContext } from '@/lib/agent-runs';
 
-import { estimateMessageCostUsd, SONNET_MODEL } from './pricing-table';
+import { estimateMessageCostUsd, tierModel } from './pricing-table';
+import { selectChatClient } from '@/lib/llm/chat-provider';
+import { openaiChatClient } from '@/lib/llm/openai-chat';
 
 // ---------------------------------------------------------------------------
 // Schema — single source of truth. The tool's input_schema is generated from
@@ -74,6 +76,8 @@ export interface ScopeModelResponse {
   content: ScopeResponseBlock[];
   usage: { input_tokens: number; output_tokens: number };
   stop_reason?: string | null;
+  /** The model that actually answered — set by provider adapters. */
+  model?: string;
 }
 
 export type ScopeMessageParam =
@@ -183,10 +187,8 @@ function summariseIssues(error: z.ZodError): string {
   return lines.length > 10 ? `${head}\n(+${lines.length - 10} more issues)` : head;
 }
 
-function defaultClient(): ScopeExtractionClient {
-  if (!process.env.ANTHROPIC_API_KEY) {
-    throw new ExtractionFailedError('ANTHROPIC_API_KEY is not set', { attempts: 0 });
-  }
+/** The Anthropic adapter (Sonnet tier). */
+function anthropicClient(): ScopeExtractionClient {
   // Thin adapter: map the SDK's (wider) response type down to the blocks this
   // module understands, so the extraction logic stays SDK-agnostic.
   const anthropic = new Anthropic();
@@ -211,10 +213,20 @@ function defaultClient(): ScopeExtractionClient {
             output_tokens: response.usage.output_tokens,
           },
           stop_reason: response.stop_reason,
+          model: response.model,
         };
       },
     },
   };
+}
+
+function defaultClient(): ScopeExtractionClient {
+  // Provider switch (LLM_PROVIDER): the configured provider owns every
+  // request, including the whole repair conversation.
+  return selectChatClient({
+    anthropic: anthropicClient,
+    openai: () => openaiChatClient(tierModel('standard')),
+  });
 }
 
 export async function extractScope(
@@ -223,7 +235,7 @@ export async function extractScope(
 ): Promise<ExtractScopeResult> {
   const client = opts.client ?? defaultClient();
   const recordRun = opts.recordRun ?? recordAgentRun;
-  const model = opts.model ?? SONNET_MODEL;
+  const model = opts.model ?? tierModel('standard');
   const ctx: AgentRunContext = {
     step: 'extract_scope',
     proposalId: opts.proposalId ?? null,
@@ -270,7 +282,10 @@ export async function extractScope(
       { signal: opts.signal },
     );
     const latencyMs = Date.now() - startedAt;
-    const costUsd = estimateMessageCostUsd(model, response.usage.input_tokens, response.usage.output_tokens);
+    // Audit the model that actually answered (rule 4) — it differs from the
+    // tier default whenever the provider adapter reports its own model.
+    const usedModel = response.model ?? model;
+    const costUsd = estimateMessageCostUsd(usedModel, response.usage.input_tokens, response.usage.output_tokens);
     totalCostUsd += costUsd ?? 0;
 
     const toolUse = response.content.find(
@@ -285,7 +300,7 @@ export async function extractScope(
       const result = scopeExtractionSchema.safeParse(toolUse.input);
       if (result.success) {
         await recordRun(ctx, {
-          model,
+          model: usedModel,
           tokensIn: response.usage.input_tokens,
           tokensOut: response.usage.output_tokens,
           costUsd,
@@ -304,7 +319,7 @@ export async function extractScope(
     const canRetry = attempts <= MAX_REPAIR_RETRIES;
     lastError = validationError;
     await recordRun(ctx, {
-      model,
+      model: usedModel,
       tokensIn: response.usage.input_tokens,
       tokensOut: response.usage.output_tokens,
       costUsd,
