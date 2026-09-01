@@ -311,6 +311,8 @@ export type Database = {
           id: string;
           proposal_id: string;
           catalog_item_id: string | null;
+          sku: string | null;
+          catalog_name: string | null;
           description: string;
           qty: number;
           unit: string;
@@ -329,6 +331,8 @@ export type Database = {
           id?: string;
           proposal_id: string;
           catalog_item_id?: string | null;
+          sku?: string | null;
+          catalog_name?: string | null;
           description: string;
           qty: number;
           unit: string;
@@ -347,6 +351,8 @@ export type Database = {
           id?: string;
           proposal_id?: string;
           catalog_item_id?: string | null;
+          sku?: string | null;
+          catalog_name?: string | null;
           description?: string;
           qty?: number;
           unit?: string;

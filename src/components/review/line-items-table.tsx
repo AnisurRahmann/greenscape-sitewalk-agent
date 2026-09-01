@@ -56,7 +56,13 @@ export function LineItemsTable({
                     >
                       {line.matchMethod}
                     </span>
-                    {line.sku && <span className="text-[10px] text-muted-foreground">{line.sku}</span>}
+                    {line.sku ? (
+                      <span className="text-[10px] text-muted-foreground">{line.sku}</span>
+                    ) : (
+                      <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium uppercase text-amber-700">
+                        unmatched
+                      </span>
+                    )}
                     {(computedLine?.discountBps ?? 0) > 0 && (
                       <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-medium text-emerald-700">
                         −{(computedLine!.discountBps / 100).toFixed(0)}% volume tier

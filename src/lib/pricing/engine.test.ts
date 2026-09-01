@@ -377,3 +377,44 @@ describe('splitCustomerLines', () => {
     expect(priced).toHaveLength(2);
   });
 });
+
+describe('catalog snapshot on priced lines', () => {
+  it('keeps the rendered description and sku stable after the catalog row is renamed', () => {
+    // The catalog row as it existed at match time.
+    const catalogRow = { id: 'cat-1', sku: 'TF-PET-70', name: 'Pet-Friendly Artificial Turf' };
+    const priced = priceProposal([
+      baseItem({
+        catalogItemId: catalogRow.id,
+        sku: catalogRow.sku,
+        catalogName: catalogRow.name,
+        description: catalogRow.name,
+      }),
+    ]);
+
+    // After the proposal is persisted, the catalog row is renamed.
+    catalogRow.name = 'Renamed Turf Product';
+    catalogRow.sku = 'RENAMED-00';
+
+    // The priced line is a snapshot: it re-joins nothing, so what renders
+    // for the customer cannot change under it.
+    expect(priced.lineItems[0]?.description).toBe('Pet-Friendly Artificial Turf');
+    expect(priced.lineItems[0]?.sku).toBe('TF-PET-70');
+    expect(priced.lineItems[0]?.catalogName).toBe('Pet-Friendly Artificial Turf');
+  });
+
+  it('carries no catalog identity on unmatched lines; description falls back to the normalized query', () => {
+    const priced = priceProposal([
+      baseItem({
+        description: 'pet grass 900 sqft',
+        matchMethod: 'unmatched',
+        catalogItemId: null,
+        sku: null,
+      }),
+    ]);
+    const line = priced.lineItems[0];
+    expect(line.sku).toBeNull();
+    expect(line.catalogName).toBeNull();
+    expect(line.description).toContain('pet grass 900 sqft');
+    expect(line.needsReview).toBe(true);
+  });
+});

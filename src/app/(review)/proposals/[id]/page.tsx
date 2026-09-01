@@ -74,7 +74,9 @@ export default async function ProposalReviewPage({
     return {
       id: line.id,
       catalogItemId: line.catalog_item_id,
-      sku: null,
+      // Snapshot written at persist time — a live catalog join could change
+      // under the proposal, this cannot.
+      sku: line.sku,
       description: line.description,
       category: catalog?.category ?? null,
       quantity: line.qty,

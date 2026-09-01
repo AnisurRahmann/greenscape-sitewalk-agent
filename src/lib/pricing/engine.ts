@@ -34,6 +34,9 @@ const TIER_2_MIN_SQFT = 1500;
 export interface MatchedItemInput {
   catalogItemId?: string | null;
   sku?: string | null;
+  /** Catalog display name at match time — snapshotted so later catalog
+   *  edits cannot rewrite a stored proposal. Null for unmatched lines. */
+  catalogName?: string | null;
   /** What the contractor/customer actually said, or the human-typed line. */
   description: string;
   category?: string | null;
@@ -57,6 +60,9 @@ export interface PricingContext {
 export interface PricedLineItem {
   catalogItemId: string | null;
   sku: string | null;
+  /** Catalog name at match time — the snapshot that keeps stored proposals
+   *  reproducible. Null for unmatched lines. */
+  catalogName: string | null;
   description: string;
   category: string | null;
   quantity: number;
@@ -155,6 +161,7 @@ export function priceProposal(
       lines.push({
         catalogItemId: null,
         sku: item.sku ?? null,
+        catalogName: null,
         description: `${UNMATCHED_MARKER}: ${item.description || item.sku || 'scope item'}`,
         category: item.category ?? null,
         quantity: item.quantity ?? 0,
@@ -195,6 +202,7 @@ export function priceProposal(
     lines.push({
       catalogItemId: item.catalogItemId ?? null,
       sku: item.sku ?? null,
+      catalogName: item.catalogName ?? null,
       description: item.description,
       category: item.category ?? null,
       quantity,
