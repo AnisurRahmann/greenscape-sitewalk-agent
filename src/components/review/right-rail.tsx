@@ -92,7 +92,7 @@ function InfoTip({ children, tip }: { children: ReactNode; tip: string }) {
       {children}
       <span
         role="tooltip"
-        className="pointer-events-none absolute left-0 top-full z-20 mt-1.5 w-60 rounded-md bg-zinc-900 px-2.5 py-2 text-[11px] font-normal leading-snug text-zinc-50 opacity-0 shadow-lg transition-opacity duration-100 group-hover:opacity-100 group-focus:opacity-100"
+        className="pointer-events-none absolute left-0 top-full z-20 mt-1.5 w-64 rounded-lg bg-zinc-950 px-3.5 py-3 text-sm leading-relaxed text-white opacity-0 shadow-xl transition-opacity duration-100 group-hover:opacity-100 group-focus:opacity-100"
       >
         {tip}
       </span>
