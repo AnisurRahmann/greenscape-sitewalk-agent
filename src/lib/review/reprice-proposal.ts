@@ -156,6 +156,7 @@ export async function repriceStoredProposal(
             rawPhrase: line.transcript_evidence ?? line.description,
             committed: true,
             evidenceVerified: line.evidence_verified,
+            matchMethod: line.match_method ?? 'manual',
           })),
       },
     proposal: {

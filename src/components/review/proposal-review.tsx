@@ -123,6 +123,7 @@ export function ProposalReview(props: ProposalReviewProps) {
           rawPhrase: line.transcriptEvidence ?? line.description,
           committed: true,
           evidenceVerified: line.evidenceVerified,
+          matchMethod: line.matchMethod,
         })),
       },
       proposal: {
