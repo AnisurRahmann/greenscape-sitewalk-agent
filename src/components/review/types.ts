@@ -51,6 +51,7 @@ export const MATCH_CHIP_STYLES: Record<string, string> = {
   vector: 'bg-purple-100 text-purple-700',
   lexical: 'bg-emerald-100 text-emerald-700',
   fuzzy: 'bg-orange-100 text-orange-700',
-  manual: 'bg-teal-100 text-teal-700',
+  // Filled, not pastel: a human priced this line — it must be obvious.
+  manual: 'bg-teal-600 text-white',
   unmatched: 'bg-red-100 text-red-700',
 };

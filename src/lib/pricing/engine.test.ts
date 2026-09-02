@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import { priceProposal, splitCustomerLines, type MatchedItemInput } from './engine';
+import {
+  priceProposal,
+  splitCustomerLines,
+  stripUnmatchedMarker,
+  type MatchedItemInput,
+} from './engine';
 import { toCents } from './money';
 
 function baseItem(overrides: Partial<MatchedItemInput> = {}): MatchedItemInput {
@@ -433,5 +438,17 @@ describe('catalog snapshot on priced lines', () => {
     expect(line.catalogName).toBeNull();
     expect(line.description).toContain('pet grass 900 sqft');
     expect(line.needsReview).toBe(true);
+  });
+});
+
+describe('stripUnmatchedMarker', () => {
+  it('strips the reviewer-only prefix, leaving the normalized query', () => {
+    expect(stripUnmatchedMarker('[Needs review — no catalog match]: pet grass 900 sqft')).toBe(
+      'pet grass 900 sqft',
+    );
+  });
+
+  it('leaves descriptions without the marker untouched', () => {
+    expect(stripUnmatchedMarker('Pet-Grade Turf 70 oz')).toBe('Pet-Grade Turf 70 oz');
   });
 });

@@ -99,6 +99,7 @@ export async function repriceStoredProposal(
     quantity: line.quantity,
     lineTotal: line.lineTotal,
     matchConfidence: line.matchConfidence,
+    matchMethod: line.matchMethod,
     committed: true,
   }));
   // Optional add-ons stay at their stored $0 and feed only G7 (nothing
@@ -106,13 +107,14 @@ export async function repriceStoredProposal(
   for (const line of activeLines.filter((line) => isOptionalAddOn(line.description))) {
     const catalog = line.catalog_item_id ? catalogById.get(line.catalog_item_id) : undefined;
     guardrailLines.push({
-      sku: null,
+      sku: line.sku,
       catalogItemId: line.catalog_item_id,
       description: line.description,
       category: catalog?.category ?? null,
       quantity: line.qty,
       lineTotal: line.line_total,
       matchConfidence: line.match_confidence,
+      matchMethod: line.match_method ?? 'manual',
       committed: false,
     });
   }

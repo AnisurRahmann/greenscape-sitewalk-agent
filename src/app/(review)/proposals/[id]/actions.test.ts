@@ -4,6 +4,7 @@ import {
   approveProposal,
   commitLineEdit,
   excludeProposalLine,
+  setManualPrice,
   type ApproveInput,
 } from './actions';
 import { ApprovalBlockedError } from '@/lib/review/reprice-proposal';
@@ -63,10 +64,23 @@ const h = vi.hoisted(() => {
           select: () => chain(),
           update: (payload: Record<string, unknown>) => {
             state.lineUpdates.push(payload);
-            function eq() {
-              return { eq, then: (res: (v: { data: null; error: null }) => unknown) => res(ok) };
+            // Apply the patch so a later reprice sees the persisted state.
+            function eq(filters: Array<[string, unknown]> = []) {
+              return {
+                eq: (col: string, val: unknown) => eq([...filters, [col, val]]),
+                then: (res: (v: { data: null; error: null }) => unknown) => {
+                  for (const line of state.lines) {
+                    if (
+                      filters.every(([col, val]) => (line as Record<string, unknown>)[col] === val)
+                    ) {
+                      Object.assign(line, payload);
+                    }
+                  }
+                  return res(ok);
+                },
+              };
             }
-            return { eq };
+            return { eq: () => eq() };
           },
         };
       }
@@ -270,5 +284,105 @@ describe('corrections — labelled training signal', () => {
     expect(correction.correction_type).toBe('remove');
     expect(correction.after).toMatchObject({ excluded: true, reason: 'duplicate scope' });
     expect(String(correction.original_query)).toContain('pet grass');
+  });
+});
+
+describe('manual-price escape hatch', () => {
+  // A proposal with a single unmatched line: no price, no cost, G3 blocks.
+  const UNMATCHED_LINE = {
+    id: 'line-1',
+    proposal_id: PROPOSAL_ID,
+    catalog_item_id: null,
+    description: '[Needs review — no catalog match]: pet grass 900 sqft',
+    qty: 50,
+    unit: 'sqft',
+    unit_price: 0,
+    discount_bps: 0,
+    unit_cost: 0,
+    line_total: 0,
+    match_method: 'unmatched',
+    match_confidence: null,
+    transcript_evidence: 'pet grass for the two goldens, nine hundred square',
+    evidence_verified: true,
+    needs_review: true,
+    sort_order: 0,
+  };
+
+  beforeEach(() => {
+    h.state.lines = [{ ...UNMATCHED_LINE } as unknown as (typeof h.state.lines)[number]];
+    h.state.proposalUpdates = [];
+    h.state.auditInserts = [];
+    h.state.lineUpdates = [];
+    h.state.correctionInserts = [];
+    h.state.afterCallbacks = [];
+  });
+
+  it('cannot be approved while the line is unmatched', async () => {
+    const outcome = await approveProposal({ proposalId: PROPOSAL_ID }).then(
+      () => {
+        throw new Error('expected the approval to be blocked');
+      },
+      (err: unknown) => err,
+    );
+    expect(outcome).toBeInstanceOf(ApprovalBlockedError);
+    expect((outcome as ApprovalBlockedError).blockedBy).toContain('G3_catalog_grounded');
+  });
+
+  it('a manual price with unit cost clears G3 and approval recomputes totals', async () => {
+    const priced = await setManualPrice({
+      proposalId: PROPOSAL_ID,
+      lineId: 'line-1',
+      unitPrice: 100,
+      unitCost: 55,
+    });
+    expect(priced.ok).toBe(true);
+    // The reviewer-only marker is stripped from the customer-facing description.
+    expect(priced.description).toBe('pet grass 900 sqft');
+    expect(h.state.correctionInserts[0]?.correction_type).toBe('add');
+    expect(String(h.state.correctionInserts[0]?.original_query)).toContain('pet grass');
+    expect(h.state.auditInserts[0]?.action).toBe('line_item.manual_price');
+
+    const outcome = await approveProposal({ proposalId: PROPOSAL_ID });
+    expect(outcome.ok).toBe(true);
+
+    // 50 sqft x $100 = $5,000 subtotal; <= $40k so $850 mobilization;
+    // 5% contingency = $250; 45% materials = $2,250 x 8.6% tax = $193.50.
+    const update = h.state.proposalUpdates[0]!;
+    expect(update.subtotal).toBe(5_000);
+    expect(update.total).toBe(5_000 + 850 + 250 + 193.5);
+    // Cost 50 x $55 = $2,750 -> margin is real, not the meaningless 100%.
+    expect(update.margin_pct).toBeCloseTo(56.3, 1);
+  });
+
+  it('clearing the price reverts to unmatched and re-blocks approval', async () => {
+    h.state.lines = [
+      {
+        ...UNMATCHED_LINE,
+        match_method: 'manual',
+        unit_price: 100,
+        unit_cost: 55,
+        needs_review: false,
+        description: 'pet grass 900 sqft',
+      } as unknown as (typeof h.state.lines)[number],
+    ];
+    const cleared = await setManualPrice({
+      proposalId: PROPOSAL_ID,
+      lineId: 'line-1',
+      unitPrice: 0,
+      unitCost: 0,
+    });
+    expect(cleared.ok).toBe(true);
+    expect(h.state.lines[0]?.match_method).toBe('unmatched');
+    expect(h.state.lines[0]?.unit_price).toBe(0);
+    expect(h.state.correctionInserts[0]?.correction_type).toBe('remove');
+
+    const outcome = await approveProposal({ proposalId: PROPOSAL_ID }).then(
+      () => {
+        throw new Error('expected the approval to be blocked');
+      },
+      (err: unknown) => err,
+    );
+    expect(outcome).toBeInstanceOf(ApprovalBlockedError);
+    expect((outcome as ApprovalBlockedError).blockedBy).toContain('G3_catalog_grounded');
   });
 });

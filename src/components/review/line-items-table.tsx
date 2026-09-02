@@ -8,10 +8,15 @@ import { Input } from '@/components/ui/input';
 
 export interface LineItemsTableProps {
   lines: ReviewLine[];
-  onChange: (lineId: string, patch: Partial<Pick<ReviewLine, 'quantity' | 'unitPrice' | 'evidenceVerified'>>) => void;
+  onChange: (lineId: string, patch: Partial<Pick<ReviewLine, 'quantity' | 'unitPrice' | 'unitCost' | 'evidenceVerified' | 'description'>>) => void;
   onEditCommit: (lineId: string, field: 'quantity' | 'unit_price', before: number, after: number) => void;
   /** Soft-delete: persisted with a required reason via the server action. */
   onExclude?: (lineId: string, reason: string) => void;
+  /** Manual-price escape hatch for unmatched/manual lines (needs unit cost). */
+  onManualPriceCommit?: (
+    lineId: string,
+    values: { unitPrice: number; unitCost: number; description: string },
+  ) => void;
   blockedLineIndexes: Set<number>;
   /** Engine-computed values (coerced qty, line total, applied volume tier). */
   computed: Array<{ quantity: number; lineTotal: number; discountBps: number }>;
@@ -22,12 +27,25 @@ export function LineItemsTable({
   onChange,
   onEditCommit,
   onExclude,
+  onManualPriceCommit,
   blockedLineIndexes,
   computed,
 }: LineItemsTableProps) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [excludePromptId, setExcludePromptId] = useState<string | null>(null);
   const [excludeReason, setExcludeReason] = useState('');
+
+  const commitManualPrice = (
+    line: ReviewLine,
+    override: Partial<{ unitPrice: number; unitCost: number; description: string }> = {},
+  ) => {
+    if (!onManualPriceCommit) return;
+    onManualPriceCommit(line.id, {
+      unitPrice: override.unitPrice ?? line.unitPrice,
+      unitCost: override.unitCost ?? line.unitCost,
+      description: override.description ?? line.description,
+    });
+  };
 
   return (
     <div className="flex flex-col gap-2">
@@ -164,7 +182,13 @@ export function LineItemsTable({
                   }
                   onBlur={(e) => {
                     const after = Number(e.target.value) || 0;
-                    if (after !== line.unitPrice) onEditCommit(line.id, 'unit_price', line.unitPrice, after);
+                    if (after === line.unitPrice) return;
+                    if (onManualPriceCommit && (line.matchMethod === 'unmatched' || line.matchMethod === 'manual')) {
+                      // Escape hatch: pricing an unmatched line flips it to manual.
+                      commitManualPrice(line, { unitPrice: after });
+                    } else {
+                      onEditCommit(line.id, 'unit_price', line.unitPrice, after);
+                    }
                   }}
                 />
               </label>
@@ -172,6 +196,41 @@ export function LineItemsTable({
                 Unit
                 <Input className="h-8" value={line.unit} readOnly tabIndex={-1} />
               </label>
+              {(line.matchMethod === 'unmatched' || line.matchMethod === 'manual') && (
+                <>
+                  <label className="flex flex-col text-[10px] text-muted-foreground">
+                    Unit cost $ (required)
+                    <Input
+                      type="number"
+                      inputMode="decimal"
+                      step="0.01"
+                      min={0}
+                      className="h-8"
+                      value={line.unitCost}
+                      onChange={(e) =>
+                        onChange(line.id, { unitCost: Number(e.target.value) || 0 })
+                      }
+                      onBlur={(e) => {
+                        const after = Number(e.target.value) || 0;
+                        if (after !== line.unitCost) commitManualPrice(line, { unitCost: after });
+                      }}
+                    />
+                  </label>
+                  <label className="col-span-2 flex flex-col text-[10px] text-muted-foreground">
+                    Description
+                    <Input
+                      className="h-8"
+                      value={line.description}
+                      onChange={(e) => onChange(line.id, { description: e.target.value })}
+                      onBlur={(e) => {
+                        if (e.target.value !== line.description) {
+                          commitManualPrice(line, { description: e.target.value });
+                        }
+                      }}
+                    />
+                  </label>
+                </>
+              )}
               {onExclude &&
                 (excludePromptId === line.id ? (
                   <div className="col-span-3 flex items-center gap-2">

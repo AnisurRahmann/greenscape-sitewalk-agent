@@ -8,6 +8,7 @@ import {
   excludeProposalLine,
   generateProposalPdf,
   rejectProposal,
+  setManualPrice,
   verifyLineEvidence,
 } from '@/app/(review)/proposals/[id]/actions';
 import { Button } from '@/components/ui/button';
@@ -151,6 +152,49 @@ export function ProposalReview(props: ProposalReviewProps) {
     }
   };
 
+  const onManualPriceCommit = (
+    lineId: string,
+    values: { unitPrice: number; unitCost: number; description: string },
+  ) => {
+    const price = Number(values.unitPrice) || 0;
+    const cost = Number(values.unitCost) || 0;
+    const line = lines.find((l) => l.id === lineId);
+    if (!line) return;
+    // A manual price needs a unit cost; zeroing the price reverts the line
+    // to unmatched. Anything else is a partial edit — wait for both fields.
+    if (price > 0 && cost <= 0) return;
+    if (price <= 0 && line.matchMethod !== 'manual') return;
+
+    startTransition(() => {
+      void setManualPrice({
+        proposalId: props.proposalId,
+        lineId,
+        unitPrice: price,
+        unitCost: cost,
+        description: values.description,
+      }).then((outcome) => {
+        if (!outcome.ok) {
+          console.error('manual price failed:', outcome.error);
+          return;
+        }
+        setLines((prev) =>
+          prev.map((l) =>
+            l.id === lineId
+              ? {
+                  ...l,
+                  unitPrice: price,
+                  unitCost: cost,
+                  matchMethod: price > 0 ? 'manual' : 'unmatched',
+                  needsReview: price <= 0,
+                  description: outcome.description ?? l.description,
+                }
+              : l,
+          ),
+        );
+      });
+    });
+  };
+
   const onExclude = (lineId: string, reason: string) => {
     startTransition(() => {
       void excludeProposalLine({ proposalId: props.proposalId, lineId, reason }).then((outcome) => {
@@ -252,6 +296,7 @@ export function ProposalReview(props: ProposalReviewProps) {
             onChange={setLine}
             onEditCommit={onEditCommit}
             onExclude={onExclude}
+            onManualPriceCommit={onManualPriceCommit}
             blockedLineIndexes={live.blockedLineIndexes}
             computed={live.computed}
           />

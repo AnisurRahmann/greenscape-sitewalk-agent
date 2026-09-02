@@ -7,6 +7,7 @@ import { getSupabaseAdmin } from '@/lib/db/client';
 import { dispatchProposal } from '@/lib/dispatch';
 import { ensureProposalPdf } from '@/lib/dispatch/proposal-pdf';
 import { recordCorrection } from '@/lib/review/corrections';
+import { stripUnmatchedMarker } from '@/lib/pricing/engine';
 import {
   repriceStoredProposal,
   ApprovalBlockedError,
@@ -69,6 +70,95 @@ export async function commitLineEdit(input: CommitLineEditInput): Promise<{ ok: 
     matchConfidenceAtTime: line?.match_confidence ?? null,
   });
   return { ok: true };
+}
+
+export interface ManualPriceInput {
+  proposalId: string;
+  lineId: string;
+  unitPrice: number;
+  unitCost: number;
+  /** The reviewer's own description; defaults to the stored normalized query. */
+  description?: string;
+}
+
+/**
+ * The manual-price escape hatch: prices an unmatched line by hand. A price
+ * above zero flips the line to match_method='manual' (G3 stops blocking) and
+ * requires a unit cost — without one the line silently contributes zero cost
+ * and the margin floor is meaningless. A price of zero reverts the line to
+ * 'unmatched'. Both directions write audit + corrections rows.
+ */
+export async function setManualPrice(
+  input: ManualPriceInput,
+): Promise<{ ok: boolean; error?: string; description?: string }> {
+  await requireSession();
+  const db = getSupabaseAdmin();
+
+  const price = Number(input.unitPrice) || 0;
+  const cost = Number(input.unitCost) || 0;
+  if (price < 0 || cost < 0) return { ok: false, error: 'Price and cost must be non-negative.' };
+  if (price > 0 && cost <= 0) {
+    return { ok: false, error: 'A unit cost is required to price a line manually.' };
+  }
+
+  const { data: line, error: lineError } = await db
+    .from('proposal_line_items')
+    .select('description, qty, match_method, match_confidence, transcript_evidence')
+    .eq('id', input.lineId)
+    .eq('proposal_id', input.proposalId)
+    .single();
+  if (lineError || !line) return { ok: false, error: lineError?.message ?? 'line not found' };
+
+  const manual = price > 0;
+  // The reviewer's own text wins; otherwise keep the stored normalized query
+  // with the reviewer-only marker stripped — the marker must never reach the
+  // PDF or /p/[token], and this line is about to become customer-visible.
+  const description =
+    input.description?.trim() || stripUnmatchedMarker(line.description) || line.description;
+
+  const update = manual
+    ? {
+        unit_price: price,
+        unit_cost: cost,
+        match_method: 'manual',
+        needs_review: false,
+        description,
+      }
+    : {
+        unit_price: 0,
+        unit_cost: 0,
+        match_method: 'unmatched',
+        needs_review: true,
+        description,
+      };
+
+  const { error: updateError } = await db
+    .from('proposal_line_items')
+    .update(update)
+    .eq('id', input.lineId)
+    .eq('proposal_id', input.proposalId);
+  if (updateError) return { ok: false, error: updateError.message };
+
+  await db.from('audit_log').insert({
+    actor: 'review-ui',
+    action: manual ? 'line_item.manual_price' : 'line_item.manual_price_cleared',
+    entity_type: 'proposal_line_item',
+    entity_id: input.lineId,
+    before: { match_method: line.match_method, description: line.description },
+    after: update,
+  });
+
+  await recordCorrection(db, {
+    proposalId: input.proposalId,
+    lineItemId: input.lineId,
+    correctionType: manual ? 'add' : 'remove',
+    before: { match_method: line.match_method, description: line.description },
+    after: update,
+    originalQuery: line.transcript_evidence,
+    matchConfidenceAtTime: line.match_confidence,
+  });
+
+  return { ok: true, description };
 }
 
 export interface ExcludeLineInput {

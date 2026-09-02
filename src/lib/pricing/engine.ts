@@ -108,7 +108,14 @@ function volumeDiscountBps(category: string | null | undefined, unit: string, qt
   return 0;
 }
 
-const UNMATCHED_MARKER = '[Needs review — no catalog match]';
+export const UNMATCHED_MARKER = '[Needs review — no catalog match]';
+
+/** Reviewer-only marker off: a manually priced line must never carry the
+ *  prefix to the PDF or /p/[token]. */
+export function stripUnmatchedMarker(description: string): string {
+  const prefix = `${UNMATCHED_MARKER}: `;
+  return description.startsWith(prefix) ? description.slice(prefix.length) : description;
+}
 
 /** Engine-owned math for rendering stored lines (PDF, public page): the list
  *  price minus its recorded tier. Display paths must not re-derive this. */

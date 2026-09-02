@@ -128,7 +128,10 @@ export function g2EvidenceGrounded(items: GuardrailExtractionItem[]): GuardrailR
 // G3 catalog_grounded — no dangling catalog references, and no unpriced line
 // leaves the review loop: an unmatched (match_method='unmatched') line has no
 // price behind it, so it blocks until the reviewer either sets a manual price
-// (match_method becomes 'manual') or removes the line.
+// (match_method becomes 'manual') or removes the line. 'manual' counts as
+// grounded and never blocks — but a manual line is permanently ineligible
+// for the future auto-approve tier: a human priced it, so a human must sign
+// off on it every time.
 // ---------------------------------------------------------------------------
 
 export function g3CatalogGrounded(
