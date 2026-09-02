@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.17.4 — 2026-09-02
+- Added: every route now shows a loading state — an emerald spinner with a context label above shape-matching skeletons, plus new loading files for /login and a root-level fallback so no route can render a blank screen
+- Fixed: /login flashed a blank screen while awaiting search params, and the existing gray-only skeletons read as a broken layout on fast connections rather than as loading feedback
+
 ## v0.17.3 — 2026-09-02
 - Added: loading skeletons for the proposals list, proposal review, public proposal page and new-site-walk page, plus a pending state on the login button — slow navigations now show feedback instead of a frozen screen
 
