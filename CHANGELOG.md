@@ -1,5 +1,8 @@
 # Changelog
 
+## v0.17.3 — 2026-09-02
+- Added: loading skeletons for the proposals list, proposal review, public proposal page and new-site-walk page, plus a pending state on the login button — slow navigations now show feedback instead of a frozen screen
+
 ## v0.17.2 — 2026-09-02
 - Fixed: v0.17.1 production build failed — AutoRefresh needed the 'use client' directive (dev compiled it, the production build did not)
 
