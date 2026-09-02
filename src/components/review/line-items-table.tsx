@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 
 import { MATCH_CHIP_STYLES, type ReviewLine } from '@/components/review/types';
 import { Button } from '@/components/ui/button';
@@ -34,6 +34,18 @@ export function LineItemsTable({
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [excludePromptId, setExcludePromptId] = useState<string | null>(null);
   const [excludeReason, setExcludeReason] = useState('');
+  const [derivedCostIds, setDerivedCostIds] = useState<Set<string>>(new Set());
+
+  // onBlur commits compare against the value at FOCUS time, not current
+  // props: a controlled input's onChange has already synced state by the
+  // time onBlur runs, so comparing against props would skip every real edit.
+  const focusValues = useRef<Map<string, number | string>>(new Map());
+  const focusKey = (lineId: string, field: string) => `${lineId}:${field}`;
+  const captureFocus = (lineId: string, field: string, value: number | string) => {
+    focusValues.current.set(focusKey(lineId, field), value);
+  };
+  const focusValue = (lineId: string, field: string, fallback: number | string) =>
+    focusValues.current.get(focusKey(lineId, field)) ?? fallback;
 
   const commitManualPrice = (
     line: ReviewLine,
@@ -162,9 +174,11 @@ export function LineItemsTable({
                   onChange={(e) =>
                     onChange(line.id, { quantity: Number(e.target.value) || 0 })
                   }
+                  onFocus={(e) => captureFocus(line.id, 'quantity', Number(e.target.value) || 0)}
                   onBlur={(e) => {
+                    const before = Number(focusValue(line.id, 'quantity', line.quantity));
                     const after = Number(e.target.value) || 0;
-                    if (after !== line.quantity) onEditCommit(line.id, 'quantity', line.quantity, after);
+                    if (after !== before) onEditCommit(line.id, 'quantity', before, after);
                   }}
                 />
               </label>
@@ -180,14 +194,25 @@ export function LineItemsTable({
                   onChange={(e) =>
                     onChange(line.id, { unitPrice: Number(e.target.value) || 0 })
                   }
+                  onFocus={(e) => captureFocus(line.id, 'unit_price', Number(e.target.value) || 0)}
                   onBlur={(e) => {
+                    const before = Number(focusValue(line.id, 'unit_price', line.unitPrice));
                     const after = Number(e.target.value) || 0;
-                    if (after === line.unitPrice) return;
-                    if (onManualPriceCommit && (line.matchMethod === 'unmatched' || line.matchMethod === 'manual')) {
-                      // Escape hatch: pricing an unmatched line flips it to manual.
-                      commitManualPrice(line, { unitPrice: after });
-                    } else {
-                      onEditCommit(line.id, 'unit_price', line.unitPrice, after);
+                    const isManualPriced =
+                      line.matchMethod === 'unmatched' || line.matchMethod === 'manual';
+                    if (isManualPriced && onManualPriceCommit) {
+                      // Escape hatch: pricing an unmatched line flips it to
+                      // manual. A missing cost is derived at the default
+                      // 55%-of-price ratio and visibly marked in the row.
+                      let unitCost = line.unitCost;
+                      if (after > 0 && unitCost <= 0) {
+                        unitCost = Math.round(after * 0.55 * 100) / 100;
+                        onChange(line.id, { unitCost });
+                        setDerivedCostIds((prev) => new Set(prev).add(line.id));
+                      }
+                      commitManualPrice(line, { unitPrice: after, unitCost });
+                    } else if (after !== before) {
+                      onEditCommit(line.id, 'unit_price', before, after);
                     }
                   }}
                 />
@@ -210,11 +235,18 @@ export function LineItemsTable({
                       onChange={(e) =>
                         onChange(line.id, { unitCost: Number(e.target.value) || 0 })
                       }
+                      onFocus={(e) => captureFocus(line.id, 'unit_cost', Number(e.target.value) || 0)}
                       onBlur={(e) => {
+                        const before = Number(focusValue(line.id, 'unit_cost', line.unitCost));
                         const after = Number(e.target.value) || 0;
-                        if (after !== line.unitCost) commitManualPrice(line, { unitCost: after });
+                        if (after !== before) commitManualPrice(line, { unitCost: after });
                       }}
                     />
+                    {derivedCostIds.has(line.id) && (
+                      <span className="text-[10px] text-amber-600">
+                        auto-filled at 55% of price — edit if needed
+                      </span>
+                    )}
                   </label>
                   <label className="col-span-2 flex flex-col text-[10px] text-muted-foreground">
                     Description
@@ -222,8 +254,12 @@ export function LineItemsTable({
                       className="h-8"
                       value={line.description}
                       onChange={(e) => onChange(line.id, { description: e.target.value })}
+                      onFocus={(e) => captureFocus(line.id, 'description', e.target.value)}
                       onBlur={(e) => {
-                        if (e.target.value !== line.description) {
+                        const before = String(
+                          focusValue(line.id, 'description', line.description),
+                        );
+                        if (e.target.value !== before) {
                           commitManualPrice(line, { description: e.target.value });
                         }
                       }}

@@ -40,6 +40,7 @@ export function ProposalReview(props: ProposalReviewProps) {
   const [transcriptOpen, setTranscriptOpen] = useState(false);
   const [pdf, setPdf] = useState<{ pdfPath?: string; signedUrl?: string } | null>(null);
   const [isPending, startTransition] = useTransition();
+  const [actionError, setActionError] = useState<string | null>(null);
 
   const onGeneratePdf = () => {
     startTransition(() => {
@@ -174,9 +175,10 @@ export function ProposalReview(props: ProposalReviewProps) {
         description: values.description,
       }).then((outcome) => {
         if (!outcome.ok) {
-          console.error('manual price failed:', outcome.error);
+          setActionError(`Manual price failed: ${outcome.error}`);
           return;
         }
+        setActionError(null);
         setLines((prev) =>
           prev.map((l) =>
             l.id === lineId
@@ -291,6 +293,11 @@ export function ProposalReview(props: ProposalReviewProps) {
         {/* Left: editable line items */}
         <section className="flex min-w-0 flex-1 flex-col gap-2">
           <h2 className="text-sm font-semibold uppercase text-muted-foreground">Line items</h2>
+          {actionError && (
+            <p className="rounded-lg border border-red-200 bg-red-50 px-2.5 py-2 text-xs font-medium text-red-700">
+              {actionError}
+            </p>
+          )}
           <LineItemsTable
             lines={mainLines}
             onChange={setLine}
