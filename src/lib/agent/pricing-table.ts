@@ -42,7 +42,10 @@ export function estimateMessageCostUsd(
   tokensIn: number | null,
   tokensOut: number | null,
 ): number | null {
-  const rate = MODEL_RATES[model];
+  // The OpenAI adapter records the API's returned model string, which carries
+  // a dated snapshot suffix (e.g. gpt-4o-2024-08-06). Price a dated snapshot
+  // at its family's listed rate; truly unknown models stay null.
+  const rate = MODEL_RATES[model] ?? MODEL_RATES[model.replace(/-\d{4}-\d{2}-\d{2}$/, '')];
   if (!rate) return null;
   const inputCost = ((tokensIn ?? 0) / 1_000_000) * rate.inputUsdPerMTokens;
   const outputCost = ((tokensOut ?? 0) / 1_000_000) * rate.outputUsdPerMTokens;
