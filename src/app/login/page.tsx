@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 
 import { signIn } from '@/app/login/actions';
-import { Button } from '@/components/ui/button';
+import { SubmitButton } from '@/app/login/submit-button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 
@@ -39,9 +39,7 @@ export default async function LoginPage({
             />
             {error && <p className="text-sm text-destructive">Wrong password — try again.</p>}
           </div>
-          <Button type="submit" className="h-12 w-full text-base">
-            Sign in
-          </Button>
+          <SubmitButton>Sign in</SubmitButton>
         </form>
       </div>
     </div>
