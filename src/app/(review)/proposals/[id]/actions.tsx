@@ -6,6 +6,8 @@ import { requireSession } from '@/lib/auth/require-session';
 import { getSupabaseAdmin } from '@/lib/db/client';
 import { dispatchProposal } from '@/lib/dispatch';
 import { ensureProposalPdf } from '@/lib/dispatch/proposal-pdf';
+import { recordCorrection } from '@/lib/review/corrections';
+import { stripUnmatchedMarker } from '@/lib/pricing/engine';
 import {
   repriceStoredProposal,
   ApprovalBlockedError,
@@ -23,6 +25,14 @@ export interface CommitLineEditInput {
 export async function commitLineEdit(input: CommitLineEditInput): Promise<{ ok: boolean; error?: string }> {
   await requireSession();
   const db = getSupabaseAdmin();
+
+  // The correction needs the line's retrieval context (what the machine
+  // heard and how confident it was) — read before the edit lands.
+  const { data: line } = await db
+    .from('proposal_line_items')
+    .select('transcript_evidence, match_confidence')
+    .eq('id', input.lineId)
+    .single();
 
   // Computed keys widen to `never` under the generated row types — branch instead.
   const { error: updateError } =
@@ -49,6 +59,169 @@ export async function commitLineEdit(input: CommitLineEditInput): Promise<{ ok: 
     // The edit itself persisted; a broken audit trail must be loud.
     console.error('audit_log write failed for line edit:', auditError);
   }
+
+  await recordCorrection(db, {
+    proposalId: input.proposalId,
+    lineItemId: input.lineId,
+    correctionType: input.field === 'quantity' ? 'qty' : 'price',
+    before: { [input.field]: input.before },
+    after: { [input.field]: input.after },
+    originalQuery: line?.transcript_evidence ?? null,
+    matchConfidenceAtTime: line?.match_confidence ?? null,
+  });
+  return { ok: true };
+}
+
+export interface ManualPriceInput {
+  proposalId: string;
+  lineId: string;
+  unitPrice: number;
+  unitCost: number;
+  /** The reviewer's own description; defaults to the stored normalized query. */
+  description?: string;
+  /** True when the unit cost was auto-derived (55% of price), not typed. */
+  costDerived?: boolean;
+}
+
+/**
+ * The manual-price escape hatch: prices an unmatched line by hand. A price
+ * above zero flips the line to match_method='manual' (G3 stops blocking) and
+ * requires a unit cost — without one the line silently contributes zero cost
+ * and the margin floor is meaningless. A price of zero reverts the line to
+ * 'unmatched'. Both directions write audit + corrections rows.
+ */
+export async function setManualPrice(
+  input: ManualPriceInput,
+): Promise<{ ok: boolean; error?: string; description?: string }> {
+  await requireSession();
+  const db = getSupabaseAdmin();
+
+  const price = Number(input.unitPrice) || 0;
+  const cost = Number(input.unitCost) || 0;
+  if (price < 0 || cost < 0) return { ok: false, error: 'Price and cost must be non-negative.' };
+  if (price > 0 && cost <= 0) {
+    return { ok: false, error: 'A unit cost is required to price a line manually.' };
+  }
+
+  const { data: line, error: lineError } = await db
+    .from('proposal_line_items')
+    .select('description, qty, match_method, match_confidence, transcript_evidence')
+    .eq('id', input.lineId)
+    .eq('proposal_id', input.proposalId)
+    .single();
+  if (lineError || !line) return { ok: false, error: lineError?.message ?? 'line not found' };
+
+  const manual = price > 0;
+  // The reviewer's own text wins; otherwise keep the stored normalized query.
+  // The reviewer-only marker is ALWAYS stripped — this line is about to
+  // become customer-visible (PDF and /p/[token]).
+  const rawDescription = input.description?.trim() || line.description;
+  const description = stripUnmatchedMarker(rawDescription) || line.description;
+
+  const update = manual
+    ? {
+        unit_price: price,
+        unit_cost: cost,
+        cost_source: input.costDerived ? 'derived' : 'reviewer',
+        match_method: 'manual',
+        needs_review: false,
+        description,
+      }
+    : {
+        unit_price: 0,
+        unit_cost: 0,
+        cost_source: null,
+        match_method: 'unmatched',
+        needs_review: true,
+        description,
+      };
+
+  const { error: updateError } = await db
+    .from('proposal_line_items')
+    .update(update)
+    .eq('id', input.lineId)
+    .eq('proposal_id', input.proposalId);
+  if (updateError) return { ok: false, error: updateError.message };
+
+  await db.from('audit_log').insert({
+    actor: 'review-ui',
+    action: manual ? 'line_item.manual_price' : 'line_item.manual_price_cleared',
+    entity_type: 'proposal_line_item',
+    entity_id: input.lineId,
+    before: { match_method: line.match_method, description: line.description },
+    after: update,
+  });
+
+  await recordCorrection(db, {
+    proposalId: input.proposalId,
+    lineItemId: input.lineId,
+    correctionType: manual ? 'add' : 'remove',
+    before: { match_method: line.match_method, description: line.description },
+    after: update,
+    originalQuery: line.transcript_evidence,
+    matchConfidenceAtTime: line.match_confidence,
+  });
+
+  return { ok: true, description };
+}
+
+export interface ExcludeLineInput {
+  proposalId: string;
+  lineId: string;
+  reason: string;
+}
+
+/** Soft-deletes a reviewed line. A short reason is required; the line stays
+ *  visible in review (struck through) but never prices or renders to the
+ *  customer. */
+export async function excludeProposalLine(
+  input: ExcludeLineInput,
+): Promise<{ ok: boolean; error?: string }> {
+  const reason = input.reason.trim();
+  if (!reason) return { ok: false, error: 'A removal reason is required.' };
+  await requireSession();
+  const db = getSupabaseAdmin();
+
+  const { data: line } = await db
+    .from('proposal_line_items')
+    .select('description, qty, unit_price, line_total, transcript_evidence, match_confidence')
+    .eq('id', input.lineId)
+    .eq('proposal_id', input.proposalId)
+    .single();
+
+  const { error: updateError } = await db
+    .from('proposal_line_items')
+    .update({ excluded: true, excluded_reason: reason })
+    .eq('id', input.lineId)
+    .eq('proposal_id', input.proposalId);
+  if (updateError) return { ok: false, error: updateError.message };
+
+  const { error: auditError } = await db.from('audit_log').insert({
+    actor: 'review-ui',
+    action: 'line_item.excluded',
+    entity_type: 'proposal_line_item',
+    entity_id: input.lineId,
+    before: { excluded: false },
+    after: { excluded: true, reason },
+  });
+  if (auditError) {
+    console.error('audit_log write failed for line exclusion:', auditError);
+  }
+
+  await recordCorrection(db, {
+    proposalId: input.proposalId,
+    lineItemId: input.lineId,
+    correctionType: 'remove',
+    before: {
+      description: line?.description ?? null,
+      qty: line?.qty ?? null,
+      unit_price: line?.unit_price ?? null,
+      line_total: line?.line_total ?? null,
+    },
+    after: { excluded: true, reason },
+    originalQuery: line?.transcript_evidence ?? null,
+    matchConfidenceAtTime: line?.match_confidence ?? null,
+  });
   return { ok: true };
 }
 

@@ -1,6 +1,13 @@
 'use client';
 
-import { MARGIN_FLOOR_PCT, type GuardrailResult } from '@/lib/guardrails/rules';
+import type { ReactNode } from 'react';
+
+import {
+  MARGIN_FLOOR_PCT,
+  TOTAL_MAX_USD,
+  TOTAL_MIN_USD,
+  type GuardrailResult,
+} from '@/lib/guardrails/rules';
 
 export interface RightRailProps {
   totals: {
@@ -43,17 +50,62 @@ function MarginGauge({ marginPct }: { marginPct: number }) {
           title={`${MARGIN_FLOOR_PCT}% floor`}
         />
       </div>
-      <p className="mt-0.5 text-[10px] text-muted-foreground">
-        ▲ {MARGIN_FLOOR_PCT}% floor — below it G4 blocks approval
+      <p className={`mt-0.5 text-[10px] ${belowFloor ? 'font-medium text-red-600' : 'text-muted-foreground'}`}>
+        {MARGIN_FLOOR_PCT}% floor
       </p>
     </div>
+  );
+}
+
+// Client-facing one-liners: each check explained in plain words — what it
+// protects the customer from, no internal jargon.
+const RULE_EXPLANATIONS: Record<string, string> = {
+  G1_schema_valid:
+    'Your quote was checked for completeness before pricing — nothing garbled, missing, or out of place.',
+  G2_evidence_grounded:
+    'Every line in this quote comes from something you actually said during the site walk — nothing was added on its own.',
+  G3_catalog_grounded:
+    'Every item uses a real product from our current price list. Anything we could not price automatically is held for a person to price by hand — an unpriced line never reaches you.',
+  G4_margin_floor: `A fairness check on the numbers, so the quote is reliable in both directions — no pricing mistakes slip through.`,
+  G5_total_bounds: `The total lands within the project range discussed (${usd(TOTAL_MIN_USD)}–${usd(TOTAL_MAX_USD)}). Anything outside is simply double-checked by a person before it goes to you.`,
+  G6_quantity_sanity:
+    'Amounts are compared against similar past projects to catch typos — like a 40 typed instead of a 4 — before the quote reaches you.',
+  G7_uncommitted_items:
+    'Ideas you asked about but have not committed to are listed as optional add-ons. Nothing is added to your total without your OK.',
+  G8_cost_ceiling: `This quote was produced within a strict automated budget, so no extra processing costs are ever passed on to you.`,
+  G9_wall_clock: `Your quote is generated quickly — if the system is ever too slow, a person steps in instead of keeping you waiting.`,
+};
+
+// CSS-only tooltip: native title tooltips depend on OS/browser tooltip
+// behavior (delayed, mouse-only, disabled in some setups), so guardrail
+// explanations render as instant hover/focus bubbles instead. Clicking also
+// focuses the trigger, which keeps the bubble open.
+function InfoTip({ children, tip }: { children: ReactNode; tip: string }) {
+  return (
+    <span
+      className="group relative inline-flex cursor-help items-center outline-none"
+      tabIndex={0}
+      aria-label={tip}
+    >
+      {children}
+      <span
+        role="tooltip"
+        className="pointer-events-none absolute left-0 top-full z-20 mt-1.5 w-64 rounded-lg border border-blue-200 bg-blue-50 px-3.5 py-3 text-sm leading-relaxed text-blue-950 opacity-0 shadow-lg transition-opacity duration-100 group-hover:opacity-100 group-focus:opacity-100"
+      >
+        {tip}
+      </span>
+    </span>
   );
 }
 
 function RuleRow({ result }: { result: GuardrailResult }) {
   return (
     <li className="flex items-start justify-between gap-2 py-0.5">
-      <span className="text-xs">{result.rule}</span>
+      <InfoTip tip={RULE_EXPLANATIONS[result.rule] ?? 'Guardrail check'}>
+        <span className="text-xs underline decoration-dotted underline-offset-2">
+          {result.rule}
+        </span>
+      </InfoTip>
       <span className={`text-xs font-medium ${result.passed ? 'text-emerald-700' : result.severity === 'block' ? 'text-red-600' : 'text-amber-600'}`}>
         {result.passed ? 'ok' : result.severity}
       </span>
@@ -103,7 +155,9 @@ export function RightRail({
         <h3 className="mb-1 text-xs font-semibold uppercase text-muted-foreground">Guardrails</h3>
         {blocks.length > 0 && (
           <div className="mb-2 rounded-lg border border-red-200 bg-red-50 p-2">
-            <p className="text-xs font-semibold text-red-700">Blocking — approval disabled</p>
+            <InfoTip tip="A safety check found something that needs a real person to look at. This quote cannot be sent until it is reviewed and fixed.">
+              <span className="text-xs font-semibold text-red-700">Blocking — approval disabled</span>
+            </InfoTip>
             <ul className="mt-1 divide-y divide-red-100">
               {blocks.map((result) => (
                 <RuleRow key={result.rule} result={result} />
@@ -113,7 +167,9 @@ export function RightRail({
         )}
         {warns.length > 0 && (
           <div className="rounded-lg border border-amber-200 bg-amber-50 p-2">
-            <p className="text-xs font-semibold text-amber-700">Warnings — advisory only</p>
+            <InfoTip tip="Friendly heads-ups that never stop your quote. Hover a check below to see what it means in plain words.">
+              <span className="text-xs font-semibold text-amber-700">Warnings — advisory only</span>
+            </InfoTip>
             <ul className="mt-1 divide-y divide-amber-100">
               {warns.map((result) => (
                 <RuleRow key={result.rule} result={result} />

@@ -74,7 +74,9 @@ export default async function ProposalReviewPage({
     return {
       id: line.id,
       catalogItemId: line.catalog_item_id,
-      sku: null,
+      // Snapshot written at persist time — a live catalog join could change
+      // under the proposal, this cannot.
+      sku: line.sku,
       description: line.description,
       category: catalog?.category ?? null,
       quantity: line.qty,
@@ -82,12 +84,15 @@ export default async function ProposalReviewPage({
       unitPrice: line.unit_price,
       discountBps: line.discount_bps,
       unitCost: line.unit_cost,
+      costSource: line.cost_source,
       lineTotal: line.line_total,
       matchMethod: line.match_method ?? 'manual',
       matchConfidence: line.match_confidence,
       transcriptEvidence: line.transcript_evidence,
       evidenceVerified: line.evidence_verified,
       needsReview: line.needs_review,
+      excluded: line.excluded,
+      excludedReason: line.excluded_reason,
       minQty: catalog?.min_qty ?? 0,
       materialsRatio: catalog?.materials_ratio ?? 0.45,
       isOptionalAddOn: line.description.includes('(optional add-on)'),

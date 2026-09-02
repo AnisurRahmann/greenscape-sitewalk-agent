@@ -205,10 +205,15 @@ describe('runSitewalkPipeline', () => {
     expect(finalUpdate.cost_total).toBe(55);
     expect(finalUpdate.status).toBe('draft'); // guardrails passed, nothing blocked
 
-    // Line items persisted with retrieval provenance.
-    console.log('DEBUG INSERTS', JSON.stringify(h.state.lineItemInserts), 'updates:', h.state.proposalUpdates.length);
+    // Line items persisted with retrieval provenance and the catalog
+    // snapshot: description is the catalog NAME, the raw spoken phrase
+    // stays in transcript_evidence only.
     expect(h.state.lineItemInserts).toHaveLength(1);
     expect(h.state.lineItemInserts[0]?.catalog_item_id).toBe(CATALOG_ID);
+    expect(h.state.lineItemInserts[0]?.sku).toBe('FF-PIT-SQ-ML');
+    expect(h.state.lineItemInserts[0]?.catalog_name).toBe('Gas Fire Pit — Square 42" Match-Lit');
+    expect(h.state.lineItemInserts[0]?.description).toBe('Gas Fire Pit — Square 42" Match-Lit');
+    expect(h.state.lineItemInserts[0]?.description).not.toContain('they want a gas fire pit');
     expect(h.state.lineItemInserts[0]?.match_method).toBe('hybrid');
     expect(h.state.lineItemInserts[0]?.transcript_evidence).toBe('they want a gas fire pit');
   });

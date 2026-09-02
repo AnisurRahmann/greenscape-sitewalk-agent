@@ -150,6 +150,48 @@ export type Database = {
         };
         Relationships: [];
       };
+      corrections: {
+        Row: {
+          id: string;
+          proposal_id: string;
+          line_item_id: string | null;
+          correction_type: string;
+          before: Json | null;
+          after: Json | null;
+          original_query: string | null;
+          rejected_catalog_item_id: string | null;
+          chosen_catalog_item_id: string | null;
+          match_confidence_at_time: number | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          proposal_id: string;
+          line_item_id?: string | null;
+          correction_type: string;
+          before?: Json | null;
+          after?: Json | null;
+          original_query?: string | null;
+          rejected_catalog_item_id?: string | null;
+          chosen_catalog_item_id?: string | null;
+          match_confidence_at_time?: number | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          proposal_id?: string;
+          line_item_id?: string | null;
+          correction_type?: string;
+          before?: Json | null;
+          after?: Json | null;
+          original_query?: string | null;
+          rejected_catalog_item_id?: string | null;
+          chosen_catalog_item_id?: string | null;
+          match_confidence_at_time?: number | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
       extractions: {
         Row: {
           id: string;
@@ -311,54 +353,69 @@ export type Database = {
           id: string;
           proposal_id: string;
           catalog_item_id: string | null;
+          sku: string | null;
+          catalog_name: string | null;
           description: string;
           qty: number;
           unit: string;
           unit_price: number;
           discount_bps: number;
           unit_cost: number;
+          cost_source: string | null;
           line_total: number;
           match_method: string | null;
           match_confidence: number | null;
           transcript_evidence: string | null;
           evidence_verified: boolean;
           needs_review: boolean;
+          excluded: boolean;
+          excluded_reason: string | null;
           sort_order: number | null;
         };
         Insert: {
           id?: string;
           proposal_id: string;
           catalog_item_id?: string | null;
+          sku?: string | null;
+          catalog_name?: string | null;
           description: string;
           qty: number;
           unit: string;
           unit_price: number;
           discount_bps?: number;
           unit_cost: number;
+          cost_source?: string | null;
           line_total: number;
           match_method?: string | null;
           match_confidence?: number | null;
           transcript_evidence?: string | null;
           evidence_verified?: boolean;
           needs_review?: boolean;
+          excluded?: boolean;
+          excluded_reason?: string | null;
           sort_order?: number | null;
         };
         Update: {
           id?: string;
           proposal_id?: string;
           catalog_item_id?: string | null;
+          sku?: string | null;
+          catalog_name?: string | null;
           description?: string;
           qty?: number;
           unit?: string;
           unit_price?: number;
           discount_bps?: number;
           unit_cost?: number;
+          cost_source?: string | null;
           line_total?: number;
           match_method?: string | null;
           match_confidence?: number | null;
           transcript_evidence?: string | null;
           evidence_verified?: boolean;
           needs_review?: boolean;
+          excluded?: boolean;
+          excluded_reason?: string | null;
           sort_order?: number | null;
         };
         Relationships: [

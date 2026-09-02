@@ -320,7 +320,12 @@ export async function runSitewalkPipeline(siteWalkId: string): Promise<PipelineR
             ? {
                 catalogItemId: cat.id,
                 sku: cat.sku,
-                description: item.raw_phrase,
+                // Snapshot the catalog identity: the line renders the catalog
+                // NAME, so later catalog renames cannot rewrite a stored
+                // proposal. The raw spoken phrase lives only in
+                // transcript_evidence.
+                catalogName: cat.name,
+                description: cat.name,
                 category: cat.category,
                 quantity: item.quantity,
                 unit: cat.unit,
@@ -333,7 +338,9 @@ export async function runSitewalkPipeline(siteWalkId: string): Promise<PipelineR
                 evidenceVerified: item.evidence_verified,
               }
             : {
-                description: item.raw_phrase,
+                // No catalog match: fall back to the normalized query —
+                // never the raw phrase — until a human prices the line.
+                description: item.normalized_query,
                 quantity: item.quantity,
                 unit: item.unit,
                 matchMethod: 'unmatched',
@@ -357,6 +364,7 @@ export async function runSitewalkPipeline(siteWalkId: string): Promise<PipelineR
         .map((m, i): PricedLineItem => ({
           catalogItemId: m.input.catalogItemId ?? null,
           sku: m.input.sku ?? null,
+          catalogName: m.input.catalogName ?? null,
           description: `${m.input.description} (optional add-on)`,
           category: m.input.category ?? null,
           quantity: m.input.quantity ?? 0,
@@ -401,6 +409,7 @@ export async function runSitewalkPipeline(siteWalkId: string): Promise<PipelineR
         quantity: line.quantity,
         lineTotal: line.lineTotal,
         matchConfidence: line.matchConfidence,
+        matchMethod: line.matchMethod,
         committed: optionalLines.includes(line) ? false : true,
       }));
 
@@ -480,6 +489,11 @@ export async function runSitewalkPipeline(siteWalkId: string): Promise<PipelineR
       const rows = allLines.map((line) => ({
         proposal_id: pid,
         catalog_item_id: line.catalogItemId,
+        // Snapshot identity alongside the price snapshot: stored proposals
+        // stay reproducible even if the catalog changes later.
+        sku: line.sku,
+        catalog_name: line.catalogName,
+        cost_source: line.unitCost > 0 ? 'catalog' : null,
         description: line.description,
         qty: line.quantity,
         unit: line.unit,

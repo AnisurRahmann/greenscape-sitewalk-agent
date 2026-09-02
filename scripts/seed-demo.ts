@@ -60,10 +60,19 @@ async function main(): Promise<void> {
   const skus = ['TF-PET-70', 'PV-CHL-60', 'DR-FR-4', 'FF-PIT-SQ-ML', 'LL-UPL-BRS'];
   const { data: catalog, error: catalogError } = await db
     .from('catalog_items')
-    .select('id, sku, unit')
+    .select('id, sku, name, unit')
     .in('sku', skus);
   if (catalogError) throw new Error(catalogError.message);
   const bySku = new Map((catalog ?? []).map((row) => [row.sku, row]));
+
+  // Line items snapshot the catalog identity (sku + name) and render the
+  // catalog name as the description — same rule as the orchestrator's
+  // persist step. Raw spoken phrases stay in transcript_evidence only.
+  const snap = (sku: string) => {
+    const cat = bySku.get(sku);
+    if (!cat) throw new Error(`seed: catalog sku ${sku} missing`);
+    return { catalog_item_id: cat.id, sku: cat.sku, catalog_name: cat.name, description: cat.name };
+  };
 
   // ==========================================================================
   // Demo 1 — completed, approved (happy path)
@@ -143,8 +152,7 @@ async function main(): Promise<void> {
   const approvedLines = [
     {
       proposal_id: PROPOSAL_APPROVED,
-      catalog_item_id: bySku.get('TF-PET-70')?.id ?? null,
-      description: 'pet grass, they have two goldens',
+      ...snap('TF-PET-70'),
       qty: 900,
       unit: 'sqft',
       // Catalog list price; the 4% volume tier (900 sqft) is recorded
@@ -162,8 +170,7 @@ async function main(): Promise<void> {
     },
     {
       proposal_id: PROPOSAL_APPROVED,
-      catalog_item_id: bySku.get('PV-CHL-60')?.id ?? null,
-      description: 'paver walkway from the side gate',
+      ...snap('PV-CHL-60'),
       qty: 240,
       unit: 'sqft',
       unit_price: 16.5,
@@ -179,8 +186,7 @@ async function main(): Promise<void> {
     },
     {
       proposal_id: PROPOSAL_APPROVED,
-      catalog_item_id: bySku.get('DR-FR-4')?.id ?? null,
-      description: 'french drain along the patio door side',
+      ...snap('DR-FR-4'),
       qty: 50,
       unit: 'lf',
       unit_price: 46,
@@ -295,8 +301,7 @@ async function main(): Promise<void> {
   const reviewLines = [
     {
       proposal_id: PROPOSAL_REVIEW,
-      catalog_item_id: bySku.get('FF-PIT-SQ-ML')?.id ?? null,
-      description: 'gas fire pit (square, match-lit) — "fifty of each model so every gate has one"',
+      ...snap('FF-PIT-SQ-ML'),
       qty: 500,
       unit: 'ea',
       unit_price: 7400,
@@ -311,8 +316,7 @@ async function main(): Promise<void> {
     },
     {
       proposal_id: PROPOSAL_REVIEW,
-      catalog_item_id: bySku.get('LL-UPL-BRS')?.id ?? null,
-      description: 'brass LED uplights — "fifty at least" along the fence',
+      ...snap('LL-UPL-BRS'),
       qty: 500,
       unit: 'ea',
       unit_price: 395,

@@ -5,8 +5,10 @@ import { useMemo, useState, useTransition } from 'react';
 import {
   approveProposal,
   commitLineEdit,
+  excludeProposalLine,
   generateProposalPdf,
   rejectProposal,
+  setManualPrice,
   verifyLineEvidence,
 } from '@/app/(review)/proposals/[id]/actions';
 import { Button } from '@/components/ui/button';
@@ -38,6 +40,7 @@ export function ProposalReview(props: ProposalReviewProps) {
   const [transcriptOpen, setTranscriptOpen] = useState(false);
   const [pdf, setPdf] = useState<{ pdfPath?: string; signedUrl?: string } | null>(null);
   const [isPending, startTransition] = useTransition();
+  const [actionError, setActionError] = useState<string | null>(null);
 
   const onGeneratePdf = () => {
     startTransition(() => {
@@ -50,15 +53,29 @@ export function ProposalReview(props: ProposalReviewProps) {
 
   const mainLines = lines.filter((line) => !line.isOptionalAddOn);
   const optionalLines = lines.filter((line) => line.isOptionalAddOn);
+  // Soft-deleted lines render struck-through but never price: the engine and
+  // the guardrails see only active lines. (Excluding everything leaves zero
+  // priced items — G4 then blocks with 'no priced items'.)
+  const activeMain = mainLines.filter((line) => !line.excluded);
+  const activeOptional = optionalLines.filter((line) => !line.excluded);
 
   // Live repricing through the REAL engine — identical math to the pipeline.
   // Stored unit prices are catalog list prices, so the tier applies exactly
   // once no matter how many times lines are re-priced.
   const live = useMemo(() => {
-    const priced = priceProposal(mainLines.map(toEngineInput));
-    // Engine lines keep input order; merge computed values onto the display rows.
-    const computed = mainLines.map((line, index) => {
-      const engineLine = priced.lineItems[index];
+    const priced = priceProposal(activeMain.map(toEngineInput));
+    // Engine lines keep input order; merge computed values onto the display
+    // rows. Excluded rows are skipped by the engine and keep stored values.
+    let pricedIndex = 0;
+    const computed = mainLines.map((line) => {
+      if (line.excluded) {
+        return {
+          quantity: line.quantity,
+          lineTotal: line.lineTotal,
+          discountBps: line.discountBps,
+        };
+      }
+      const engineLine = priced.lineItems[pricedIndex++];
       return engineLine
         ? {
             quantity: engineLine.quantity,
@@ -80,9 +97,10 @@ export function ProposalReview(props: ProposalReviewProps) {
       quantity: line.quantity,
       lineTotal: line.lineTotal,
       matchConfidence: line.matchConfidence,
+      matchMethod: line.matchMethod,
       committed: true,
     }));
-    for (const optional of optionalLines) {
+    for (const optional of activeOptional) {
       guardrailLines.push({
         sku: optional.sku,
         catalogItemId: optional.catalogItemId,
@@ -91,6 +109,7 @@ export function ProposalReview(props: ProposalReviewProps) {
         quantity: optional.quantity,
         lineTotal: optional.lineTotal,
         matchConfidence: optional.matchConfidence,
+        matchMethod: optional.matchMethod,
         committed: false,
       });
     }
@@ -100,7 +119,7 @@ export function ProposalReview(props: ProposalReviewProps) {
       extraction: {
         schemaValid: true,
         retryCount: 0,
-        items: mainLines.map((line) => ({
+        items: activeMain.map((line) => ({
           rawPhrase: line.transcriptEvidence ?? line.description,
           committed: true,
           evidenceVerified: line.evidenceVerified,
@@ -122,7 +141,7 @@ export function ProposalReview(props: ProposalReviewProps) {
     );
 
     return { priced, computed, results, blocking, blockedLineIndexes };
-  }, [mainLines, optionalLines, props.proposalId, props.validCatalogIds, props.generationCostUsd, props.elapsedMs]);
+  }, [mainLines, activeMain, activeOptional, props.proposalId, props.validCatalogIds, props.generationCostUsd, props.elapsedMs]);
 
   const setLine = (lineId: string, patch: Partial<ReviewLine>) => {
     setLines((prev) => prev.map((line) => (line.id === lineId ? { ...line, ...patch } : line)));
@@ -132,6 +151,71 @@ export function ProposalReview(props: ProposalReviewProps) {
         void verifyLineEvidence(lineId, props.proposalId);
       });
     }
+  };
+
+  const onManualPriceCommit = (
+    lineId: string,
+    values: { unitPrice: number; unitCost: number; description: string; costDerived: boolean },
+  ) => {
+    const price = Number(values.unitPrice) || 0;
+    const cost = Number(values.unitCost) || 0;
+    const line = lines.find((l) => l.id === lineId);
+    if (!line) return;
+    // A manual price needs a unit cost; zeroing the price reverts the line
+    // to unmatched. Anything else is a partial edit — wait for both fields.
+    if (price > 0 && cost <= 0) {
+      setActionError('A unit cost is required to price this line manually.');
+      return;
+    }
+    if (price <= 0 && line.matchMethod !== 'manual') return;
+
+    startTransition(() => {
+      void setManualPrice({
+        proposalId: props.proposalId,
+        lineId,
+        unitPrice: price,
+        unitCost: cost,
+        description: values.description,
+        costDerived: values.costDerived,
+      }).then((outcome) => {
+        if (!outcome.ok) {
+          setActionError(`Manual price failed: ${outcome.error}`);
+          return;
+        }
+        setActionError(null);
+        setLines((prev) =>
+          prev.map((l) =>
+            l.id === lineId
+              ? {
+                  ...l,
+                  unitPrice: price,
+                  unitCost: cost,
+                  costSource: price > 0 ? (values.costDerived ? 'derived' : 'reviewer') : null,
+                  matchMethod: price > 0 ? 'manual' : 'unmatched',
+                  needsReview: price <= 0,
+                  description: outcome.description ?? l.description,
+                }
+              : l,
+          ),
+        );
+      });
+    });
+  };
+
+  const onExclude = (lineId: string, reason: string) => {
+    startTransition(() => {
+      void excludeProposalLine({ proposalId: props.proposalId, lineId, reason }).then((outcome) => {
+        if (!outcome.ok) {
+          console.error('line exclusion failed:', outcome.error);
+          return;
+        }
+        setLines((prev) =>
+          prev.map((line) =>
+            line.id === lineId ? { ...line, excluded: true, excludedReason: reason } : line,
+          ),
+        );
+      });
+    });
   };
 
   const onEditCommit = (lineId: string, field: 'quantity' | 'unit_price', before: number, after: number) => {
@@ -214,10 +298,17 @@ export function ProposalReview(props: ProposalReviewProps) {
         {/* Left: editable line items */}
         <section className="flex min-w-0 flex-1 flex-col gap-2">
           <h2 className="text-sm font-semibold uppercase text-muted-foreground">Line items</h2>
+          {actionError && (
+            <p className="rounded-lg border border-red-200 bg-red-50 px-2.5 py-2 text-xs font-medium text-red-700">
+              {actionError}
+            </p>
+          )}
           <LineItemsTable
             lines={mainLines}
             onChange={setLine}
             onEditCommit={onEditCommit}
+            onExclude={onExclude}
+            onManualPriceCommit={onManualPriceCommit}
             blockedLineIndexes={live.blockedLineIndexes}
             computed={live.computed}
           />
