@@ -73,14 +73,24 @@ describe('G2 evidence_grounded', () => {
     expect(result.passed).toBe(true);
   });
 
-  it('blocks when any item lacks verified evidence', () => {
+  it('blocks when any item lacks verified evidence and points at the row', () => {
     const result = g2EvidenceGrounded([
       { rawPhrase: 'fire pit', committed: true, evidenceVerified: true },
       { rawPhrase: 'invented gazebo', committed: true, evidenceVerified: false },
     ]);
     expect(result.severity).toBe('block');
     expect(result.passed).toBe(false);
+    expect(result.lineIndex).toBe(1);
     expect(result.detail.unverified).toHaveLength(1);
+  });
+
+  it('exempts manually priced lines — the human who priced them is the grounding', () => {
+    const result = g2EvidenceGrounded([
+      { rawPhrase: 'fire pit', committed: true, evidenceVerified: true },
+      { rawPhrase: 'custom steel edging', committed: true, evidenceVerified: false, matchMethod: 'manual' },
+    ]);
+    expect(result.passed).toBe(true);
+    expect(result.detail.unverified).toHaveLength(0);
   });
 });
 

@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.17.1 — 2026-09-02
+- Fixed: G2 evidence_grounded no longer demands transcript verification for manually priced lines — the reviewer who set the price is the grounding (applies to the pipeline, review UI and approval reprice alike). G2 now also highlights the offending row instead of leaving the reviewer to hunt for it
+- Added: the proposals list shows a pulsing "generating · <step>" chip while the pipeline is producing a proposal and auto-refreshes every 3s until it finishes, instead of a bare "draft" with no indication that generation is in flight
+
 ## v0.17.0 — 2026-09-02
 - Added: manual-price escape hatch — reviewers price an unmatched line by hand (list price + required unit cost, with an optional cost auto-derived at 55% of price and visibly marked), clearing the G3 block and re-enabling approval; zeroing the price reverts the line to unmatched and re-blocks. Every manual price writes a labelled corrections row (type 'add') plus an audit entry
 - Added: catalog identity snapshot on line items (migration 0009) — sku, catalog_name and cost_source stored per line so proposals are reproducible artifacts; descriptions render the catalog name (never the raw transcript phrase); existing rows backfilled from catalog_item_id
