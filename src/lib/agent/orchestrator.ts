@@ -418,10 +418,11 @@ export async function runSitewalkPipeline(siteWalkId: string): Promise<PipelineR
         extraction: {
           schemaValid: true,
           retryCount: extracted.output.attempts - 1,
-          items: extraction.items.map((item) => ({
+          items: extraction.items.map((item, i) => ({
             rawPhrase: item.raw_phrase,
             committed: item.committed,
             evidenceVerified: item.evidence_verified,
+            matchMethod: matched.output[i]?.input.matchMethod ?? null,
           })),
         },
         proposal: {

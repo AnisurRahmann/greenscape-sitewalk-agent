@@ -35,6 +35,9 @@ export interface GuardrailExtractionItem {
   rawPhrase: string;
   committed: boolean;
   evidenceVerified: boolean;
+  /** A manually priced line is grounded by the human who priced it — G2
+   *  skips the transcript check for it. Null for machine-matched lines. */
+  matchMethod?: string | null;
 }
 
 export interface GuardrailExtractionState {
@@ -105,18 +108,23 @@ export function g1SchemaValid(extraction: GuardrailExtractionState): GuardrailRe
 }
 
 // ---------------------------------------------------------------------------
-// G2 evidence_grounded — every item verified against the transcript (rule 3).
+// G2 evidence_grounded — every machine-matched item verified against the
+// transcript. Manually priced lines are exempt: the reviewer who set the
+// price IS the grounding, so a human-created line is never "unevidenced".
 // ---------------------------------------------------------------------------
 
 export function g2EvidenceGrounded(items: GuardrailExtractionItem[]): GuardrailResult {
   const unverified = items
     .map((item, index) => ({ item, index }))
-    .filter(({ item }) => !item.evidenceVerified);
+    .filter(({ item }) => !item.evidenceVerified && item.matchMethod !== 'manual');
 
   return {
     rule: 'G2_evidence_grounded',
     severity: 'block',
     passed: unverified.length === 0,
+    // Point the UI at the first offending row so the reviewer is not left
+    // hunting for which line failed the check.
+    lineIndex: unverified[0]?.index,
     detail: {
       total_items: items.length,
       unverified: unverified.map(({ item, index }) => ({ index, raw_phrase: item.rawPhrase })),
