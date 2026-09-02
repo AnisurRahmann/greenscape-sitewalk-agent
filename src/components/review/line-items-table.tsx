@@ -60,16 +60,23 @@ export function LineItemsTable({
                     {line.description}
                   </p>
                   <div className="mt-1 flex flex-wrap items-center gap-1.5">
-                    <span
-                      className={`rounded-full px-2 py-0.5 text-[10px] font-medium uppercase ${
-                        MATCH_CHIP_STYLES[line.matchMethod] ?? 'bg-slate-100 text-slate-600'
-                      }`}
-                    >
-                      {line.matchMethod}
-                    </span>
-                    {line.sku ? (
+                    {/* match_method is the single source of truth for the
+                        unmatched state (same field G3 reads) — never infer it
+                        from sku. The red method chip would duplicate the
+                        amber UNMATCHED chip, so it steps aside for it. */}
+                    {line.matchMethod !== 'unmatched' && (
+                      <span
+                        className={`rounded-full px-2 py-0.5 text-[10px] font-medium uppercase ${
+                          MATCH_CHIP_STYLES[line.matchMethod] ?? 'bg-slate-100 text-slate-600'
+                        }`}
+                      >
+                        {line.matchMethod}
+                      </span>
+                    )}
+                    {line.sku && (
                       <span className="text-[10px] text-muted-foreground">{line.sku}</span>
-                    ) : (
+                    )}
+                    {line.matchMethod === 'unmatched' && (
                       <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium uppercase text-amber-700">
                         unmatched
                       </span>
