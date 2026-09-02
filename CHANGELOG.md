@@ -1,5 +1,18 @@
 # Changelog
 
+## v0.17.0 — 2026-09-02
+- Added: manual-price escape hatch — reviewers price an unmatched line by hand (list price + required unit cost, with an optional cost auto-derived at 55% of price and visibly marked), clearing the G3 block and re-enabling approval; zeroing the price reverts the line to unmatched and re-blocks. Every manual price writes a labelled corrections row (type 'add') plus an audit entry
+- Added: catalog identity snapshot on line items (migration 0009) — sku, catalog_name and cost_source stored per line so proposals are reproducible artifacts; descriptions render the catalog name (never the raw transcript phrase); existing rows backfilled from catalog_item_id
+- Added: line-item soft delete (migration 0010) — "Remove line…" with a required reason; excluded lines stay visible struck-through in review but never price, and never reach the PDF or /p/[token]
+- Added: corrections table (migration 0011) capturing every review correction as labelled training signal (qty/price/remove/remap/add with before/after, original query and match confidence), plus scripts/human-touch-rate.ts — human touch rate over a date range as a markdown table
+- Added: cost_source lineage on line items (migration 0012) — catalog | reviewer | derived, with derived costs visibly marked in review; existing rows backfilled
+- Added: guardrails tooltips with client-facing one-line explanations of every rule and severity banner
+- Changed: G3 catalog_grounded now blocks approval while any line is match_method='unmatched' (previously a warning) — approval stays gated until the line is manually priced or removed; 'manual' lines count as grounded
+- Fixed: agent spend rendered $0.00 — dated OpenAI snapshot model strings (gpt-4o-2024-08-06, gpt-4o-mini-2024-07-18) now price at their family's listed rate
+- Fixed: sku chip reads the snapshotted catalog sku and the UNMATCHED chip shows only when match_method='unmatched' (previously inferred from sku, mislabelling rows)
+- Fixed: line edits commit on blur via focus-time comparison (controlled-input state had been silently swallowing edits), manual-price and exclusion failures surface in the UI, and the margin floor caption is neutral unless margin is actually below 30%
+- Deployment: apply migrations 0009–0012 with `supabase db push` (0009 and 0012 backfill existing rows)
+
 ## v0.16.0 — 2026-09-02
 - Added: LLM_PROVIDER switch (anthropic default | openai) — with openai, chat tiers run on gpt-4o-mini (classify) and gpt-4o (extract/narrative) so a single OPENAI_API_KEY covers chat, Whisper transcription and embeddings; a switch, not a fallback, and audit rows record the model that actually answered
 - Added: GPT-4o and GPT-4o-mini list prices in the rate table
