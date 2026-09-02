@@ -1,6 +1,9 @@
+import { PageLoader } from '@/components/ui/page-loader';
+
 export default function ProposalsLoading() {
   return (
     <div className="flex flex-col gap-4">
+      <PageLoader label="Loading proposals…" />
       <header>
         <div className="h-8 w-40 animate-pulse rounded bg-muted" />
         <div className="mt-2 h-4 w-72 animate-pulse rounded bg-muted" />
