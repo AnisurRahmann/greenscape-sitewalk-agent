@@ -6,6 +6,7 @@ import { requireSession } from '@/lib/auth/require-session';
 import { getSupabaseAdmin } from '@/lib/db/client';
 import { dispatchProposal } from '@/lib/dispatch';
 import { ensureProposalPdf } from '@/lib/dispatch/proposal-pdf';
+import { recordCorrection } from '@/lib/review/corrections';
 import {
   repriceStoredProposal,
   ApprovalBlockedError,
@@ -23,6 +24,14 @@ export interface CommitLineEditInput {
 export async function commitLineEdit(input: CommitLineEditInput): Promise<{ ok: boolean; error?: string }> {
   await requireSession();
   const db = getSupabaseAdmin();
+
+  // The correction needs the line's retrieval context (what the machine
+  // heard and how confident it was) — read before the edit lands.
+  const { data: line } = await db
+    .from('proposal_line_items')
+    .select('transcript_evidence, match_confidence')
+    .eq('id', input.lineId)
+    .single();
 
   // Computed keys widen to `never` under the generated row types — branch instead.
   const { error: updateError } =
@@ -49,6 +58,16 @@ export async function commitLineEdit(input: CommitLineEditInput): Promise<{ ok: 
     // The edit itself persisted; a broken audit trail must be loud.
     console.error('audit_log write failed for line edit:', auditError);
   }
+
+  await recordCorrection(db, {
+    proposalId: input.proposalId,
+    lineItemId: input.lineId,
+    correctionType: input.field === 'quantity' ? 'qty' : 'price',
+    before: { [input.field]: input.before },
+    after: { [input.field]: input.after },
+    originalQuery: line?.transcript_evidence ?? null,
+    matchConfidenceAtTime: line?.match_confidence ?? null,
+  });
   return { ok: true };
 }
 
@@ -69,6 +88,13 @@ export async function excludeProposalLine(
   await requireSession();
   const db = getSupabaseAdmin();
 
+  const { data: line } = await db
+    .from('proposal_line_items')
+    .select('description, qty, unit_price, line_total, transcript_evidence, match_confidence')
+    .eq('id', input.lineId)
+    .eq('proposal_id', input.proposalId)
+    .single();
+
   const { error: updateError } = await db
     .from('proposal_line_items')
     .update({ excluded: true, excluded_reason: reason })
@@ -87,6 +113,21 @@ export async function excludeProposalLine(
   if (auditError) {
     console.error('audit_log write failed for line exclusion:', auditError);
   }
+
+  await recordCorrection(db, {
+    proposalId: input.proposalId,
+    lineItemId: input.lineId,
+    correctionType: 'remove',
+    before: {
+      description: line?.description ?? null,
+      qty: line?.qty ?? null,
+      unit_price: line?.unit_price ?? null,
+      line_total: line?.line_total ?? null,
+    },
+    after: { excluded: true, reason },
+    originalQuery: line?.transcript_evidence ?? null,
+    matchConfidenceAtTime: line?.match_confidence ?? null,
+  });
   return { ok: true };
 }
 

@@ -150,6 +150,48 @@ export type Database = {
         };
         Relationships: [];
       };
+      corrections: {
+        Row: {
+          id: string;
+          proposal_id: string;
+          line_item_id: string | null;
+          correction_type: string;
+          before: Json | null;
+          after: Json | null;
+          original_query: string | null;
+          rejected_catalog_item_id: string | null;
+          chosen_catalog_item_id: string | null;
+          match_confidence_at_time: number | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          proposal_id: string;
+          line_item_id?: string | null;
+          correction_type: string;
+          before?: Json | null;
+          after?: Json | null;
+          original_query?: string | null;
+          rejected_catalog_item_id?: string | null;
+          chosen_catalog_item_id?: string | null;
+          match_confidence_at_time?: number | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          proposal_id?: string;
+          line_item_id?: string | null;
+          correction_type?: string;
+          before?: Json | null;
+          after?: Json | null;
+          original_query?: string | null;
+          rejected_catalog_item_id?: string | null;
+          chosen_catalog_item_id?: string | null;
+          match_confidence_at_time?: number | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
       extractions: {
         Row: {
           id: string;

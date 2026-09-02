@@ -1,6 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { approveProposal, type ApproveInput } from './actions';
+import {
+  approveProposal,
+  commitLineEdit,
+  excludeProposalLine,
+  type ApproveInput,
+} from './actions';
 import { ApprovalBlockedError } from '@/lib/review/reprice-proposal';
 
 // ---------------------------------------------------------------------------
@@ -13,6 +18,8 @@ const h = vi.hoisted(() => {
   const state = {
     proposalUpdates: [] as Array<Record<string, unknown>>,
     auditInserts: [] as Array<Record<string, unknown>>,
+    lineUpdates: [] as Array<Record<string, unknown>>,
+    correctionInserts: [] as Array<Record<string, unknown>>,
     afterCallbacks: [] as Array<() => unknown>,
     lines: [
       {
@@ -42,12 +49,33 @@ const h = vi.hoisted(() => {
   const db = {
     from(table: string) {
       if (table === 'proposal_line_items') {
+        const chain = (filters: Array<[string, unknown]> = []) => ({
+          eq: (col: string, val: unknown) => chain([...filters, [col, val]]),
+          single: async () => {
+            const row = state.lines.find((line) =>
+              filters.every(([col, val]) => (line as Record<string, unknown>)[col] === val),
+            );
+            return { data: row ?? null, error: null };
+          },
+          order: async () => ({ data: state.lines, error: null }),
+        });
         return {
-          select: () => ({
-            eq: () => ({
-              order: async () => ({ data: state.lines, error: null }),
-            }),
-          }),
+          select: () => chain(),
+          update: (payload: Record<string, unknown>) => {
+            state.lineUpdates.push(payload);
+            function eq() {
+              return { eq, then: (res: (v: { data: null; error: null }) => unknown) => res(ok) };
+            }
+            return { eq };
+          },
+        };
+      }
+      if (table === 'corrections') {
+        return {
+          insert: (row: Record<string, unknown>) => {
+            state.correctionInserts.push(row);
+            return async () => ok;
+          },
         };
       }
       if (table === 'catalog_items') {
@@ -171,5 +199,76 @@ describe('approveProposal — server-authoritative repricing', () => {
 
     expect(h.state.proposalUpdates).toHaveLength(0);
     expect(h.state.afterCallbacks).toHaveLength(0);
+  });
+});
+
+describe('corrections — labelled training signal', () => {
+  const baseLine = { ...h.state.lines[0]! };
+
+  beforeEach(() => {
+    h.state.lines = [{ ...baseLine }];
+    h.state.proposalUpdates = [];
+    h.state.auditInserts = [];
+    h.state.lineUpdates = [];
+    h.state.correctionInserts = [];
+    h.state.afterCallbacks = [];
+  });
+
+  it('commitLineEdit writes a qty correction alongside the audit row', async () => {
+    const outcome = await commitLineEdit({
+      lineId: 'line-1',
+      proposalId: PROPOSAL_ID,
+      field: 'quantity',
+      before: 900,
+      after: 400,
+    });
+    expect(outcome.ok).toBe(true);
+
+    expect(h.state.auditInserts).toHaveLength(1);
+    expect(h.state.correctionInserts).toHaveLength(1);
+    const correction = h.state.correctionInserts[0]!;
+    expect(correction.correction_type).toBe('qty');
+    expect(correction.before).toMatchObject({ quantity: 900 });
+    expect(correction.after).toMatchObject({ quantity: 400 });
+    // Training signal carries the retrieval context of the original match.
+    expect(String(correction.original_query)).toContain('pet grass');
+    expect(correction.match_confidence_at_time).toBe(0.97);
+  });
+
+  it('labels a unit-price edit as a price correction', async () => {
+    await commitLineEdit({
+      lineId: 'line-1',
+      proposalId: PROPOSAL_ID,
+      field: 'unit_price',
+      before: 9.75,
+      after: 11,
+    });
+    expect(h.state.correctionInserts[0]?.correction_type).toBe('price');
+    expect(h.state.correctionInserts[0]?.before).toMatchObject({ unit_price: 9.75 });
+  });
+
+  it('excludeProposalLine writes a remove correction with the required reason', async () => {
+    const refused = await excludeProposalLine({
+      proposalId: PROPOSAL_ID,
+      lineId: 'line-1',
+      reason: '   ',
+    });
+    expect(refused.ok).toBe(false);
+    expect(h.state.correctionInserts).toHaveLength(0);
+    expect(h.state.lineUpdates).toHaveLength(0);
+
+    const outcome = await excludeProposalLine({
+      proposalId: PROPOSAL_ID,
+      lineId: 'line-1',
+      reason: 'duplicate scope',
+    });
+    expect(outcome.ok).toBe(true);
+    expect(h.state.lineUpdates[0]).toMatchObject({ excluded: true, excluded_reason: 'duplicate scope' });
+    expect(h.state.auditInserts[0]).toMatchObject({ action: 'line_item.excluded' });
+    expect(h.state.correctionInserts).toHaveLength(1);
+    const correction = h.state.correctionInserts[0]!;
+    expect(correction.correction_type).toBe('remove');
+    expect(correction.after).toMatchObject({ excluded: true, reason: 'duplicate scope' });
+    expect(String(correction.original_query)).toContain('pet grass');
   });
 });
