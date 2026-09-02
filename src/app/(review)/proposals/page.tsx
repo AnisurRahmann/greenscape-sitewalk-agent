@@ -1,7 +1,9 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 
+import { AutoRefresh } from '@/components/review/auto-refresh';
 import { getSupabaseAdmin } from '@/lib/db/client';
+import { generationState } from '@/lib/review/proposal-status';
 
 export const metadata: Metadata = { title: 'Proposals — Greenscape Pro' };
 
@@ -25,8 +27,11 @@ export default async function ProposalsPage() {
 
   const { data: proposals } = await db
     .from('proposals')
-    .select('id, status, total, margin_pct, created_at, leads(full_name)')
+    .select('id, status, total, margin_pct, created_at, step_status, leads(full_name)')
     .order('created_at', { ascending: false });
+
+  const generation = new Map((proposals ?? []).map((p) => [p.id, generationState(p.step_status)]));
+  const anyGenerating = [...generation.values()].some((state) => state.active);
 
   const ids = (proposals ?? []).map((p) => p.id);
   const { data: failedEvents } = ids.length
@@ -48,6 +53,7 @@ export default async function ProposalsPage() {
 
   return (
     <div className="flex flex-col gap-4">
+      <AutoRefresh active={anyGenerating} />
       <header>
         <h1 className="text-2xl font-semibold tracking-tight">Proposals</h1>
         <p className="mt-1 text-sm text-muted-foreground">
@@ -69,13 +75,19 @@ export default async function ProposalsPage() {
               className="block rounded-xl border p-4 transition-colors hover:bg-muted/40"
             >
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <span
-                  className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                    STATUS_STYLES[proposal.status] ?? 'bg-slate-100 text-slate-700'
-                  }`}
-                >
-                  {proposal.status.replace('_', ' ')}
-                </span>
+                {generation.get(proposal.id)?.active ? (
+                  <span className="animate-pulse rounded-full bg-blue-600 px-2.5 py-0.5 text-xs font-medium text-white">
+                    generating{generation.get(proposal.id)?.step ? ` · ${generation.get(proposal.id)?.step}` : ''}…
+                  </span>
+                ) : (
+                  <span
+                    className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                      STATUS_STYLES[proposal.status] ?? 'bg-slate-100 text-slate-700'
+                    }`}
+                  >
+                    {proposal.status.replace('_', ' ')}
+                  </span>
+                )}
                 <time className="text-xs text-muted-foreground" dateTime={proposal.created_at}>
                   {new Date(proposal.created_at).toLocaleString('en-US', {
                     month: 'short',
