@@ -1,5 +1,8 @@
 # Changelog
 
+## v0.17.2 — 2026-09-02
+- Fixed: v0.17.1 production build failed — AutoRefresh needed the 'use client' directive (dev compiled it, the production build did not)
+
 ## v0.17.1 — 2026-09-02
 - Fixed: G2 evidence_grounded no longer demands transcript verification for manually priced lines — the reviewer who set the price is the grounding (applies to the pipeline, review UI and approval reprice alike). G2 now also highlights the offending row instead of leaving the reviewer to hunt for it
 - Added: the proposals list shows a pulsing "generating · <step>" chip while the pipeline is producing a proposal and auto-refreshes every 3s until it finishes, instead of a bare "draft" with no indication that generation is in flight
