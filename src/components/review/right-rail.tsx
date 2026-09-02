@@ -50,8 +50,8 @@ function MarginGauge({ marginPct }: { marginPct: number }) {
           title={`${MARGIN_FLOOR_PCT}% floor`}
         />
       </div>
-      <p className="mt-0.5 text-[10px] text-muted-foreground">
-        ▲ {MARGIN_FLOOR_PCT}% floor — below it G4 blocks approval
+      <p className={`mt-0.5 text-[10px] ${belowFloor ? 'font-medium text-red-600' : 'text-muted-foreground'}`}>
+        {MARGIN_FLOOR_PCT}% floor
       </p>
     </div>
   );
