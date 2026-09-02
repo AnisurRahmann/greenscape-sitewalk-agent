@@ -84,6 +84,7 @@ export default async function ProposalReviewPage({
       unitPrice: line.unit_price,
       discountBps: line.discount_bps,
       unitCost: line.unit_cost,
+      costSource: line.cost_source,
       lineTotal: line.line_total,
       matchMethod: line.match_method ?? 'manual',
       matchConfidence: line.match_confidence,

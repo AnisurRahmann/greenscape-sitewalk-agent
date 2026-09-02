@@ -15,7 +15,7 @@ export interface LineItemsTableProps {
   /** Manual-price escape hatch for unmatched/manual lines (needs unit cost). */
   onManualPriceCommit?: (
     lineId: string,
-    values: { unitPrice: number; unitCost: number; description: string },
+    values: { unitPrice: number; unitCost: number; description: string; costDerived: boolean },
   ) => void;
   blockedLineIndexes: Set<number>;
   /** Engine-computed values (coerced qty, line total, applied volume tier). */
@@ -50,12 +50,14 @@ export function LineItemsTable({
   const commitManualPrice = (
     line: ReviewLine,
     override: Partial<{ unitPrice: number; unitCost: number; description: string }> = {},
+    costDerived = false,
   ) => {
     if (!onManualPriceCommit) return;
     onManualPriceCommit(line.id, {
       unitPrice: override.unitPrice ?? line.unitPrice,
       unitCost: override.unitCost ?? line.unitCost,
       description: override.description ?? line.description,
+      costDerived,
     });
   };
 
@@ -205,12 +207,14 @@ export function LineItemsTable({
                       // manual. A missing cost is derived at the default
                       // 55%-of-price ratio and visibly marked in the row.
                       let unitCost = line.unitCost;
+                      let derived = false;
                       if (after > 0 && unitCost <= 0) {
                         unitCost = Math.round(after * 0.55 * 100) / 100;
                         onChange(line.id, { unitCost });
+                        derived = true;
                         setDerivedCostIds((prev) => new Set(prev).add(line.id));
                       }
-                      commitManualPrice(line, { unitPrice: after, unitCost });
+                      commitManualPrice(line, { unitPrice: after, unitCost }, derived);
                     } else if (after !== before) {
                       onEditCommit(line.id, 'unit_price', before, after);
                     }
@@ -242,11 +246,11 @@ export function LineItemsTable({
                         if (after !== before) commitManualPrice(line, { unitCost: after });
                       }}
                     />
-                    {derivedCostIds.has(line.id) && (
+                    {derivedCostIds.has(line.id) || line.costSource === 'derived' ? (
                       <span className="text-[10px] text-amber-600">
-                        auto-filled at 55% of price — edit if needed
+                        auto-derived at 55% of price — edit to change
                       </span>
-                    )}
+                    ) : null}
                   </label>
                   <label className="col-span-2 flex flex-col text-[10px] text-muted-foreground">
                     Description

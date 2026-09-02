@@ -493,6 +493,7 @@ export async function runSitewalkPipeline(siteWalkId: string): Promise<PipelineR
         // stay reproducible even if the catalog changes later.
         sku: line.sku,
         catalog_name: line.catalogName,
+        cost_source: line.unitCost > 0 ? 'catalog' : null,
         description: line.description,
         qty: line.quantity,
         unit: line.unit,

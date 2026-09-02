@@ -12,6 +12,8 @@ export interface ReviewLine {
   unitPrice: number;
   discountBps: number;
   unitCost: number;
+  /** Where unit_cost came from: 'catalog' | 'reviewer' | 'derived'. */
+  costSource: string | null;
   lineTotal: number;
   matchMethod: string;
   matchConfidence: number | null;

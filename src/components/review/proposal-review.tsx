@@ -155,7 +155,7 @@ export function ProposalReview(props: ProposalReviewProps) {
 
   const onManualPriceCommit = (
     lineId: string,
-    values: { unitPrice: number; unitCost: number; description: string },
+    values: { unitPrice: number; unitCost: number; description: string; costDerived: boolean },
   ) => {
     const price = Number(values.unitPrice) || 0;
     const cost = Number(values.unitCost) || 0;
@@ -163,7 +163,10 @@ export function ProposalReview(props: ProposalReviewProps) {
     if (!line) return;
     // A manual price needs a unit cost; zeroing the price reverts the line
     // to unmatched. Anything else is a partial edit — wait for both fields.
-    if (price > 0 && cost <= 0) return;
+    if (price > 0 && cost <= 0) {
+      setActionError('A unit cost is required to price this line manually.');
+      return;
+    }
     if (price <= 0 && line.matchMethod !== 'manual') return;
 
     startTransition(() => {
@@ -173,6 +176,7 @@ export function ProposalReview(props: ProposalReviewProps) {
         unitPrice: price,
         unitCost: cost,
         description: values.description,
+        costDerived: values.costDerived,
       }).then((outcome) => {
         if (!outcome.ok) {
           setActionError(`Manual price failed: ${outcome.error}`);
@@ -186,6 +190,7 @@ export function ProposalReview(props: ProposalReviewProps) {
                   ...l,
                   unitPrice: price,
                   unitCost: cost,
+                  costSource: price > 0 ? (values.costDerived ? 'derived' : 'reviewer') : null,
                   matchMethod: price > 0 ? 'manual' : 'unmatched',
                   needsReview: price <= 0,
                   description: outcome.description ?? l.description,

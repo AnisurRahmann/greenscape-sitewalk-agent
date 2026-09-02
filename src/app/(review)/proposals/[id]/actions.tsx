@@ -79,6 +79,8 @@ export interface ManualPriceInput {
   unitCost: number;
   /** The reviewer's own description; defaults to the stored normalized query. */
   description?: string;
+  /** True when the unit cost was auto-derived (55% of price), not typed. */
+  costDerived?: boolean;
 }
 
 /**
@@ -110,16 +112,17 @@ export async function setManualPrice(
   if (lineError || !line) return { ok: false, error: lineError?.message ?? 'line not found' };
 
   const manual = price > 0;
-  // The reviewer's own text wins; otherwise keep the stored normalized query
-  // with the reviewer-only marker stripped — the marker must never reach the
-  // PDF or /p/[token], and this line is about to become customer-visible.
-  const description =
-    input.description?.trim() || stripUnmatchedMarker(line.description) || line.description;
+  // The reviewer's own text wins; otherwise keep the stored normalized query.
+  // The reviewer-only marker is ALWAYS stripped — this line is about to
+  // become customer-visible (PDF and /p/[token]).
+  const rawDescription = input.description?.trim() || line.description;
+  const description = stripUnmatchedMarker(rawDescription) || line.description;
 
   const update = manual
     ? {
         unit_price: price,
         unit_cost: cost,
+        cost_source: input.costDerived ? 'derived' : 'reviewer',
         match_method: 'manual',
         needs_review: false,
         description,
@@ -127,6 +130,7 @@ export async function setManualPrice(
     : {
         unit_price: 0,
         unit_cost: 0,
+        cost_source: null,
         match_method: 'unmatched',
         needs_review: true,
         description,
