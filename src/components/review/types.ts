@@ -12,12 +12,17 @@ export interface ReviewLine {
   unitPrice: number;
   discountBps: number;
   unitCost: number;
+  /** Where unit_cost came from: 'catalog' | 'reviewer' | 'derived'. */
+  costSource: string | null;
   lineTotal: number;
   matchMethod: string;
   matchConfidence: number | null;
   transcriptEvidence: string | null;
   evidenceVerified: boolean;
   needsReview: boolean;
+  /** Soft-deleted in review — struck through, never priced or rendered. */
+  excluded: boolean;
+  excludedReason: string | null;
   minQty: number;
   materialsRatio: number;
   /** Optional add-ons were matched but not committed: priced at $0. */
@@ -48,6 +53,7 @@ export const MATCH_CHIP_STYLES: Record<string, string> = {
   vector: 'bg-purple-100 text-purple-700',
   lexical: 'bg-emerald-100 text-emerald-700',
   fuzzy: 'bg-orange-100 text-orange-700',
-  manual: 'bg-teal-100 text-teal-700',
+  // Filled, not pastel: a human priced this line — it must be obvious.
+  manual: 'bg-teal-600 text-white',
   unmatched: 'bg-red-100 text-red-700',
 };

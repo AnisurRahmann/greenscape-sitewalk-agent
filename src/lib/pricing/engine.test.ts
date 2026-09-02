@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import { priceProposal, type MatchedItemInput } from './engine';
+import {
+  priceProposal,
+  splitCustomerLines,
+  stripUnmatchedMarker,
+  type MatchedItemInput,
+} from './engine';
 import { toCents } from './money';
 
 function baseItem(overrides: Partial<MatchedItemInput> = {}): MatchedItemInput {
@@ -334,5 +339,116 @@ describe('priceProposal — invariants (property test)', () => {
       }
       expect(Number.isFinite(proposal.marginPct)).toBe(true);
     }
+  });
+});
+
+describe('splitCustomerLines', () => {
+  type Row = {
+    description: string;
+    needs_review: boolean;
+    line_total: number;
+    match_method: string | null;
+    excluded: boolean;
+  };
+
+  function row(overrides: Partial<Row> = {}): Row {
+    return {
+      description: 'paver section',
+      needs_review: false,
+      line_total: 8_400,
+      match_method: 'hybrid',
+      excluded: false,
+      ...overrides,
+    };
+  }
+
+  it('splits stored rows into priced lines and $0 optional add-ons', () => {
+    const { priced, optionalAddOns } = splitCustomerLines([
+      row(),
+      row({ description: 'ramada someday', needs_review: true, line_total: 0 }),
+    ]);
+    expect(priced.map((line) => line.description)).toEqual(['paver section']);
+    expect(optionalAddOns.map((line) => line.description)).toEqual(['ramada someday']);
+  });
+
+  it('drops unmatched lines from both buckets — they are reviewer-only', () => {
+    const { priced, optionalAddOns } = splitCustomerLines([
+      row({ match_method: 'unmatched', needs_review: true, line_total: 0 }),
+      row({ match_method: 'unmatched', line_total: 1_200 }),
+      row(),
+    ]);
+    expect(priced.map((line) => line.description)).toEqual(['paver section']);
+    expect(optionalAddOns).toHaveLength(0);
+  });
+
+  it('drops excluded (soft-deleted) rows from both buckets', () => {
+    const { priced, optionalAddOns } = splitCustomerLines([
+      row({ excluded: true }),
+      row({ description: 'ramada someday', needs_review: true, line_total: 0, excluded: true }),
+      row(),
+    ]);
+    expect(priced).toHaveLength(1);
+    expect(optionalAddOns).toHaveLength(0);
+  });
+
+  it('keeps manual lines the reviewer priced, with or without a catalog match', () => {
+    const { priced } = splitCustomerLines([
+      row({ match_method: 'manual' }),
+      row({ description: 'custom steel edging', match_method: 'manual' }),
+    ]);
+    expect(priced).toHaveLength(2);
+  });
+});
+
+describe('catalog snapshot on priced lines', () => {
+  it('keeps the rendered description and sku stable after the catalog row is renamed', () => {
+    // The catalog row as it existed at match time.
+    const catalogRow = { id: 'cat-1', sku: 'TF-PET-70', name: 'Pet-Friendly Artificial Turf' };
+    const priced = priceProposal([
+      baseItem({
+        catalogItemId: catalogRow.id,
+        sku: catalogRow.sku,
+        catalogName: catalogRow.name,
+        description: catalogRow.name,
+      }),
+    ]);
+
+    // After the proposal is persisted, the catalog row is renamed.
+    catalogRow.name = 'Renamed Turf Product';
+    catalogRow.sku = 'RENAMED-00';
+
+    // The priced line is a snapshot: it re-joins nothing, so what renders
+    // for the customer cannot change under it.
+    expect(priced.lineItems[0]?.description).toBe('Pet-Friendly Artificial Turf');
+    expect(priced.lineItems[0]?.sku).toBe('TF-PET-70');
+    expect(priced.lineItems[0]?.catalogName).toBe('Pet-Friendly Artificial Turf');
+  });
+
+  it('carries no catalog identity on unmatched lines; description falls back to the normalized query', () => {
+    const priced = priceProposal([
+      baseItem({
+        description: 'pet grass 900 sqft',
+        matchMethod: 'unmatched',
+        catalogItemId: null,
+        sku: null,
+      }),
+    ]);
+    const line = priced.lineItems[0];
+    expect(line.sku).toBeNull();
+    expect(line.catalogName).toBeNull();
+    expect(line.description).toContain('pet grass 900 sqft');
+    expect(line.needsReview).toBe(true);
+  });
+});
+
+describe('stripUnmatchedMarker', () => {
+  it('strips the reviewer-only prefix, leaving the normalized query', () => {
+    expect(stripUnmatchedMarker('[Needs review — no catalog match]: pet grass 900 sqft')).toBe(
+      'pet grass 900 sqft',
+    );
+  });
+
+  it('leaves descriptions without the marker untouched', () => {
+    expect(stripUnmatchedMarker('Pet-Grade Turf 70 oz')).toBe('Pet-Grade Turf 70 oz');
   });
 });

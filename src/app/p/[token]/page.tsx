@@ -4,7 +4,7 @@ import { notFound } from 'next/navigation';
 import { z } from 'zod';
 
 import { getSupabaseAdmin } from '@/lib/db/client';
-import { effectiveUnitPrice } from '@/lib/pricing/engine';
+import { effectiveUnitPrice, splitCustomerLines } from '@/lib/pricing/engine';
 import { depositForTotal } from '@/lib/pdf/proposal';
 
 export const metadata: Metadata = { title: 'Your proposal — Greenscape Pro' };
@@ -48,18 +48,16 @@ export default async function PublicProposalPage({
 
   const { data: lines } = await db
     .from('proposal_line_items')
-    .select('description, qty, unit, unit_price, discount_bps, line_total, needs_review')
+    .select('description, qty, unit, unit_price, discount_bps, line_total, needs_review, match_method, excluded')
     .eq('proposal_id', proposal.id)
     .order('sort_order');
 
-  const pricedLines = (lines ?? []).filter((line) => !line.needs_review || line.line_total > 0);
-  const addOns = (lines ?? [])
-    .filter((line) => line.needs_review && line.line_total === 0)
-    .map((line) => ({
-      description: line.description.replace(/\s*\(optional add-on\)\s*/i, ' ').trim(),
-      quantity: line.qty,
-      unit: line.unit,
-    }));
+  const { priced: pricedLines, optionalAddOns: splitAddOns } = splitCustomerLines(lines ?? []);
+  const addOns = splitAddOns.map((line) => ({
+    description: line.description.replace(/\s*\(optional add-on\)\s*/i, ' ').trim(),
+    quantity: line.qty,
+    unit: line.unit,
+  }));
 
   const narrative = storedNarrativeSchema.safeParse(
     proposal.narrative ? JSON.parse(proposal.narrative) : null,

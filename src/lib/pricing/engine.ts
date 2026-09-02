@@ -34,6 +34,9 @@ const TIER_2_MIN_SQFT = 1500;
 export interface MatchedItemInput {
   catalogItemId?: string | null;
   sku?: string | null;
+  /** Catalog display name at match time — snapshotted so later catalog
+   *  edits cannot rewrite a stored proposal. Null for unmatched lines. */
+  catalogName?: string | null;
   /** What the contractor/customer actually said, or the human-typed line. */
   description: string;
   category?: string | null;
@@ -57,6 +60,9 @@ export interface PricingContext {
 export interface PricedLineItem {
   catalogItemId: string | null;
   sku: string | null;
+  /** Catalog name at match time — the snapshot that keeps stored proposals
+   *  reproducible. Null for unmatched lines. */
+  catalogName: string | null;
   description: string;
   category: string | null;
   quantity: number;
@@ -102,13 +108,47 @@ function volumeDiscountBps(category: string | null | undefined, unit: string, qt
   return 0;
 }
 
-const UNMATCHED_MARKER = '[Needs review — no catalog match]';
+export const UNMATCHED_MARKER = '[Needs review — no catalog match]';
+
+/** Reviewer-only marker off: a manually priced line must never carry the
+ *  prefix to the PDF or /p/[token]. */
+export function stripUnmatchedMarker(description: string): string {
+  const prefix = `${UNMATCHED_MARKER}: `;
+  return description.startsWith(prefix) ? description.slice(prefix.length) : description;
+}
 
 /** Engine-owned math for rendering stored lines (PDF, public page): the list
  *  price minus its recorded tier. Display paths must not re-derive this. */
 export function effectiveUnitPrice(listUnitPrice: number, discountBps: number): number {
   const cents = toCents(listUnitPrice);
   return fromCents(cents - centsTimesBps(cents, discountBps));
+}
+
+/** The fields of a stored proposal_line_items row the customer split needs. */
+export interface StoredLineLike {
+  needs_review: boolean | null;
+  line_total: number;
+  match_method: string | null;
+  /** Soft-deleted in review — rendered only there, struck through. */
+  excluded?: boolean | null;
+}
+
+/**
+ * Customer-facing split of stored lines, shared by the PDF renderer and the
+ * /p/[token] page. Unmatched lines exist only for the reviewer — an unpriced
+ * line can never reach a customer — and excluded lines were removed by a
+ * human; both are dropped before the split.
+ */
+export function splitCustomerLines<T extends StoredLineLike>(
+  lines: T[],
+): { priced: T[]; optionalAddOns: T[] } {
+  const visible = lines.filter(
+    (line) => line.match_method !== 'unmatched' && !line.excluded,
+  );
+  return {
+    priced: visible.filter((line) => !line.needs_review || line.line_total > 0),
+    optionalAddOns: visible.filter((line) => line.needs_review && line.line_total === 0),
+  };
 }
 
 export function priceProposal(
@@ -133,6 +173,7 @@ export function priceProposal(
       lines.push({
         catalogItemId: null,
         sku: item.sku ?? null,
+        catalogName: null,
         description: `${UNMATCHED_MARKER}: ${item.description || item.sku || 'scope item'}`,
         category: item.category ?? null,
         quantity: item.quantity ?? 0,
@@ -173,6 +214,7 @@ export function priceProposal(
     lines.push({
       catalogItemId: item.catalogItemId ?? null,
       sku: item.sku ?? null,
+      catalogName: item.catalogName ?? null,
       description: item.description,
       category: item.category ?? null,
       quantity,
